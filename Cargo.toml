@@ -1,0 +1,15 @@
+[package]
+name = "build-revmap"
+version = "0.1.0"
+authors = ["Zacchary Dempsey-Plante <zacc@ztdp.ca>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "A simple utility for building a revision map for a Git repo that was converted from an SVN repository by `git-svn` with the `--metadata` flag supplied."
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[dependencies]
+anyhow = "1.0"
+clap = "4.0"
