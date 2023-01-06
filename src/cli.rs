@@ -52,6 +52,19 @@ pub fn build_cli() -> Command {
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
 		.arg(
+			Arg::new("markdown-basic")
+				.group("outputs")
+				.long("markdown-basic")
+				.num_args(1)
+				.action(ArgAction::Set)
+				.value_name("PATH")
+				.help(
+					"Write the results to a Markdown file at PATH. This is the basic version, \
+					 without repository links, to save space.",
+				)
+				.value_parser(NonEmptyStringValueParser::new()),
+		)
+		.arg(
 			Arg::new("git-url-base")
 				.long("git-url-base")
 				.visible_alias("git-url")

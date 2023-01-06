@@ -58,3 +58,29 @@ where
 		.write_all(output_str.as_bytes())
 		.with_context(|| "unable to write bytes to the file")
 }
+
+pub fn write_to_markdown_basic<P>(path: P, revision_maps: &[RevisionMapping]) -> Result<()>
+where
+	P: AsRef<Path>,
+{
+	let mut output_str = String::new();
+
+	for revision_map in revision_maps {
+		let git_revision_string = bytes_to_str(&revision_map.git_revision);
+
+		output_str.push_str(
+			format!(
+				"- {}: {} -> {}\n",
+				revision_map.svn_revision,
+				revision_map.svn_url,
+				git_revision_string.as_str(),
+			)
+			.as_str(),
+		);
+	}
+
+	let mut output_file = File::create(path).with_context(|| "unable to open path for writing")?;
+	output_file
+		.write_all(output_str.as_bytes())
+		.with_context(|| "unable to write bytes to the file")
+}

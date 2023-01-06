@@ -48,7 +48,7 @@ use anyhow::{Context, Result};
 use crate::{
 	cli::build_cli,
 	parsing::get_repo_revision_maps,
-	writing::{write_to_bin, write_to_markdown},
+	writing::{write_to_bin, write_to_markdown, write_to_markdown_basic},
 };
 
 // Entry Point
@@ -70,6 +70,9 @@ fn main() -> Result<()> {
 			.get_one::<String>("git-url-base")
 			.expect("Clap ensures the argument is provided");
 		write_to_markdown(path, git_url_base.as_str(), revision_maps.as_slice())
+			.with_context(|| "unable to write the revision map to markdown")?;
+	} else if let Some(path) = matches.get_one::<String>("markdown-basic") {
+		write_to_markdown_basic(path, revision_maps.as_slice())
 			.with_context(|| "unable to write the revision map to markdown")?;
 	} else {
 		unreachable!("Clap ensures exactly one output path is provided");
