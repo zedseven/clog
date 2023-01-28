@@ -109,6 +109,7 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	let mut jira_tickets_set = HashSet::new();
 	let mut referenced_git_commits_set = HashSet::new();
 	let mut referenced_svn_commits_set = HashSet::new();
+	let mut first_line = true;
 	for line in lines.iter().skip(1) {
 		// Search for the SVN metadata string
 		if svn_info.is_none() && line.starts_with(GIT_SVN_ID_STR) {
@@ -139,8 +140,10 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 
 		// Search for Jira tickets
 		lazy_static! {
+			// Looks for a Jira ticket right at the start, or anywhere on the line if the line starts with "Pull request #..."
 			static ref JIRA_TICKET_START_REGEX: Regex =
-				Regex::new(r"^\s*([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap();
+				Regex::new(r"^\s*(?:Pull request #\d+.*?)?([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap();
+			// Look for a Jira ticket anywhere on the line
 			static ref JIRA_TICKET_REFERENCED_REGEX: Regex =
 				Regex::new(r"\b([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap();
 			/// Matches any Git commit hashes 7 characters or longer (to avoid matching small numbers that show up for other reasons)
@@ -155,8 +158,12 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 		} else {
 			&*JIRA_TICKET_START_REGEX
 		};
-		for jira_ticket in jira_ticket_regex.captures_iter(line) {
-			jira_tickets_set.insert(jira_ticket[1].to_owned());
+		// Only check the first line for Jira tickets, unless we're supposed to look for
+		// all mentioned tickets
+		if include_mentioned_jira_tickets || first_line {
+			for jira_ticket in jira_ticket_regex.captures_iter(line) {
+				jira_tickets_set.insert(jira_ticket[1].to_owned());
+			}
 		}
 
 		// Search for referenced commits (merges, etc.)
@@ -185,6 +192,8 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 				}
 			}
 		}
+
+		first_line = false;
 	}
 
 	Ok(Commit {
