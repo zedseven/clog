@@ -53,7 +53,7 @@ use shell_words::split as split_shell_words;
 
 use crate::{
 	cli::build_cli,
-	collection::{get_complete_commit_list, Commit},
+	collection::get_complete_commit_list,
 	index::Index,
 	search::{get_search_results, IncludedCommit},
 	util::sortable_jira_ticket,

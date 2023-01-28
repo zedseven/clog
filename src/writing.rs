@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, path::Path};
 
 use anyhow::{Context, Result};
 
-use crate::util::{bytes_to_str, parse_hex_str};
+use crate::util::parse_hex_str;
 
 /// Based on: <https://github.com/hexmode/git-1/blob/master/perl/Git/SVN.pm#L2170>
 pub fn write_to_bin<P>(path: P, revision_map: &[(u32, &str, &str)]) -> Result<()>
