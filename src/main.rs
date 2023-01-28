@@ -36,8 +36,6 @@
 	unused_macros
 )]
 
-extern crate core;
-
 // Modules
 mod cli;
 mod collection;
@@ -45,6 +43,7 @@ mod constants;
 mod index;
 mod search;
 mod util;
+mod writing;
 
 // Uses
 use std::collections::{HashMap, HashSet};
@@ -58,6 +57,7 @@ use crate::{
 	index::Index,
 	search::{get_search_results, IncludedCommit},
 	util::sortable_jira_ticket,
+	writing::{write_to_bin, write_to_markdown},
 };
 
 // Entry Point
@@ -67,7 +67,7 @@ fn main() -> Result<()> {
 
 	match subcommand_matches.subcommand() {
 		Some(("list", matches)) => {
-			// Get the CLI arguments that were provided
+			// Collect the CLI arguments that were provided
 			let repo_dir = matches
 				.get_one::<String>("repo")
 				.expect("Clap ensures the argument is provided");
@@ -96,12 +96,15 @@ fn main() -> Result<()> {
 				}
 			}
 
+			// Collect all commits in the repo
 			let commits =
 				get_complete_commit_list(repo_dir.as_str(), include_mentioned_jira_tickets)
 					.with_context(|| "unable to get the repo revision maps")?;
 
+			// Build the index
 			let index = Index::new(commits.as_slice())?;
 
+			// Perform the search
 			let search_results = get_search_results(
 				&index,
 				repo_dir.as_str(),
@@ -110,6 +113,7 @@ fn main() -> Result<()> {
 			)
 			.with_context(|| "unable to perform the search")?;
 
+			// Display the results
 			if flatten {
 				// Flatten the results
 				let mut commit_set = HashSet::new();
@@ -121,7 +125,8 @@ fn main() -> Result<()> {
 
 				// Sort the lists
 				let mut jira_ticket_list = Vec::from_iter(jira_ticket_set);
-				jira_ticket_list.sort_by_key(|jira_ticket| sortable_jira_ticket(jira_ticket));
+				jira_ticket_list
+					.sort_unstable_by_key(|jira_ticket| sortable_jira_ticket(jira_ticket));
 
 				// Display the results
 				println!("Commits: ({} total)", commit_set.len());
@@ -162,7 +167,8 @@ fn main() -> Result<()> {
 
 				// Sort the Jira tickets
 				let mut jira_ticket_groups_sorted = jira_ticket_groups.iter().collect::<Vec<_>>();
-				jira_ticket_groups_sorted.sort_by_key(|entry| sortable_jira_ticket(entry.0));
+				jira_ticket_groups_sorted
+					.sort_unstable_by_key(|entry| sortable_jira_ticket(entry.0));
 
 				// Display the results
 				println!("Jira tickets: ({} total)", jira_ticket_groups_sorted.len());
@@ -173,26 +179,44 @@ fn main() -> Result<()> {
 			}
 		}
 		Some(("revmap", matches)) => {
+			// Collect the CLI arguments that were provided
 			let repo_dir = matches
 				.get_one::<String>("repo")
 				.expect("Clap ensures the argument is provided");
+			let hash_length = *matches
+				.get_one::<u32>("hash-length")
+				.expect("Clap provides a default value") as usize;
 
-			// if let Some(path) = matches.get_one::<String>("binary") {
-			// 	write_to_bin(path, revision_maps.as_slice())
-			// 		.with_context(|| "unable to write the revision map to binary")?;
-			// } else if let Some(path) = matches.get_one::<String>("markdown")
-			// { 	let git_url_base = matches
-			// 		.get_one::<String>("git-url-base")
-			// 		.expect("Clap ensures the argument is provided");
-			// 	write_to_markdown(path, git_url_base.as_str(),
-			// revision_maps.as_slice()) 		.with_context(|| "unable to write the
-			// revision map to markdown")?; } else if let Some(path) =
-			// matches.get_one::<String>("markdown-basic") {
-			// 	write_to_markdown_basic(path, revision_maps.as_slice())
-			// 		.with_context(|| "unable to write the revision map to
-			// markdown")?; } else {
-			// 	unreachable!("Clap ensures exactly one output path is provided");
-			// };
+			// Collect all commits in the repo
+			let commits = get_complete_commit_list(repo_dir.as_str(), false)
+				.with_context(|| "unable to get the repo revision maps")?;
+
+			// Build a revision map and discard any commits that don't have SVN info
+			let mut revision_map = commits
+				.iter()
+				.filter_map(|commit| {
+					commit.svn_info.as_ref().map(|svn_info| {
+						(
+							svn_info.svn_revision,
+							svn_info.svn_url.as_str(),
+							commit.git_revision.as_str(),
+						)
+					})
+				})
+				.collect::<Vec<_>>();
+
+			// Sort the revision map to ensure that it's in order
+			revision_map.sort_by_key(|entry| entry.0); // Stable sort to preserve order in case of ties
+
+			// Write it to disk in the specified formats
+			if let Some(path) = matches.get_one::<String>("binary") {
+				write_to_bin(path, revision_map.as_slice())
+					.with_context(|| "unable to write the revision map to binary")?;
+			}
+			if let Some(path) = matches.get_one::<String>("markdown") {
+				write_to_markdown(path, revision_map.as_slice(), hash_length)
+					.with_context(|| "unable to write the revision map to markdown")?;
+			};
 		}
 		_ => unreachable!("Clap ensures that a subcommand is provided"),
 	}

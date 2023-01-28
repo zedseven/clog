@@ -21,6 +21,15 @@ pub fn build_cli() -> Command {
 		.value_name("PATH")
 		.help("The path to the Git repository to read from.")
 		.value_parser(NonEmptyStringValueParser::new());
+	let hash_length_arg = Arg::new("hash-length")
+		.long("hash-length")
+		.visible_alias("length")
+		.num_args(1)
+		.default_value("8")
+		.action(ArgAction::Set)
+		.value_name("LENGTH")
+		.help("The number of characters to abbreviate Git revision hashes to.")
+		.value_parser(value_parser!(u32).range(6..=SHA1_HASH_ASCII_LENGTH as i64));
 
 	let list_subcommand = Command::new("list")
 		.about("Generates lists of information based on a provided revspec.")
@@ -102,17 +111,7 @@ pub fn build_cli() -> Command {
 					 referenced commits' Jira tickets are ignored)",
 				),
 		)
-		.arg(
-			Arg::new("hash-length")
-				.long("hash-length")
-				.visible_alias("length")
-				.num_args(1)
-				.default_value("8")
-				.action(ArgAction::Set)
-				.value_name("LENGTH")
-				.help("The number of characters to abbreviate Git revision hashes to.")
-				.value_parser(value_parser!(u32).range(6..=SHA1_HASH_ASCII_LENGTH as i64)),
-		);
+		.arg(hash_length_arg.clone());
 
 	let revmap_subcommand = Command::new("revmap")
 		.visible_alias("svn-revmap")
@@ -124,8 +123,9 @@ pub fn build_cli() -> Command {
 		.arg(repo_arg)
 		.group(
 			ArgGroup::new("outputs")
-				.args(["binary", "markdown", "markdown-basic"])
-				.required(true),
+				.args(["binary", "markdown"])
+				.required(true)
+				.multiple(true),
 		)
 		.arg(
 			Arg::new("binary")
@@ -144,36 +144,10 @@ pub fn build_cli() -> Command {
 				.num_args(1)
 				.action(ArgAction::Set)
 				.value_name("PATH")
-				.requires("git-url-base")
 				.help("Write the results to a Markdown file at PATH.")
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
-		.arg(
-			Arg::new("markdown-basic")
-				.long("markdown-basic")
-				.num_args(1)
-				.action(ArgAction::Set)
-				.value_name("PATH")
-				.help(
-					"Write the results to a Markdown file at PATH. This is the basic version, \
-					 without repository links, to save space.",
-				)
-				.value_parser(NonEmptyStringValueParser::new()),
-		)
-		.arg(
-			Arg::new("git-url-base")
-				.long("git-url-base")
-				.visible_alias("git-url")
-				.num_args(1)
-				.action(ArgAction::Set)
-				.value_name("URL")
-				.requires("markdown")
-				.help(
-					"The URL base used for linking to specific commits. The base is expected to \
-					 include a trailing slash.",
-				)
-				.value_parser(NonEmptyStringValueParser::new()),
-		);
+		.arg(hash_length_arg);
 
 	Command::new(APPLICATION_PROPER_NAME)
 		.version(env!("CARGO_PKG_VERSION"))
