@@ -38,45 +38,52 @@
 
 // Modules
 mod cli;
-mod parsing;
+mod retrieval;
 mod util;
-mod writing;
 
 // Uses
 use anyhow::{Context, Result};
 
-use crate::{
-	cli::build_cli,
-	parsing::get_repo_revision_maps,
-	writing::{write_to_bin, write_to_markdown, write_to_markdown_basic},
-};
+use crate::{cli::build_cli, retrieval::get_repo_revision_maps};
 
 // Entry Point
 fn main() -> Result<()> {
 	let cli_definition = build_cli();
-	let matches = cli_definition.get_matches();
-	let repo_dir = matches
-		.get_one::<String>("repo")
-		.expect("Clap ensures the argument is provided");
+	let subcommand_matches = cli_definition.get_matches();
 
-	let revision_maps = get_repo_revision_maps(repo_dir.as_str())
-		.with_context(|| "unable to get the repo revision maps")?;
+	match subcommand_matches.subcommand() {
+		Some(("list", matches)) => {
+			let repo_dir = matches
+				.get_one::<String>("repo")
+				.expect("Clap ensures the argument is provided");
+		}
+		Some(("revmap", matches)) => {
+			let repo_dir = matches
+				.get_one::<String>("repo")
+				.expect("Clap ensures the argument is provided");
 
-	if let Some(path) = matches.get_one::<String>("binary") {
-		write_to_bin(path, revision_maps.as_slice())
-			.with_context(|| "unable to write the revision map to binary")?;
-	} else if let Some(path) = matches.get_one::<String>("markdown") {
-		let git_url_base = matches
-			.get_one::<String>("git-url-base")
-			.expect("Clap ensures the argument is provided");
-		write_to_markdown(path, git_url_base.as_str(), revision_maps.as_slice())
-			.with_context(|| "unable to write the revision map to markdown")?;
-	} else if let Some(path) = matches.get_one::<String>("markdown-basic") {
-		write_to_markdown_basic(path, revision_maps.as_slice())
-			.with_context(|| "unable to write the revision map to markdown")?;
-	} else {
-		unreachable!("Clap ensures exactly one output path is provided");
-	};
+			let revision_maps = get_repo_revision_maps(repo_dir.as_str())
+				.with_context(|| "unable to get the repo revision maps")?;
+
+			// if let Some(path) = matches.get_one::<String>("binary") {
+			// 	write_to_bin(path, revision_maps.as_slice())
+			// 		.with_context(|| "unable to write the revision map to binary")?;
+			// } else if let Some(path) = matches.get_one::<String>("markdown")
+			// { 	let git_url_base = matches
+			// 		.get_one::<String>("git-url-base")
+			// 		.expect("Clap ensures the argument is provided");
+			// 	write_to_markdown(path, git_url_base.as_str(),
+			// revision_maps.as_slice()) 		.with_context(|| "unable to write the
+			// revision map to markdown")?; } else if let Some(path) =
+			// matches.get_one::<String>("markdown-basic") {
+			// 	write_to_markdown_basic(path, revision_maps.as_slice())
+			// 		.with_context(|| "unable to write the revision map to
+			// markdown")?; } else {
+			// 	unreachable!("Clap ensures exactly one output path is provided");
+			// };
+		}
+		_ => unreachable!("Clap ensures that a subcommand is provided"),
+	}
 
 	Ok(())
 }
