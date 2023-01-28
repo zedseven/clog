@@ -36,6 +36,8 @@
 	unused_macros
 )]
 
+extern crate core;
+
 // Modules
 mod cli;
 mod collection;
@@ -48,6 +50,7 @@ mod util;
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result};
+use shell_words::split as split_shell_words;
 
 use crate::{
 	cli::build_cli,
@@ -71,7 +74,7 @@ fn main() -> Result<()> {
 			let revspec = matches
 				.get_one::<String>("revspec")
 				.expect("Clap ensures the argument is provided");
-			let affected_filepaths = matches.get_one::<String>("filepaths");
+			let affected_filepath_sets = matches.get_many::<String>("filepath");
 			let include_mentioned_jira_tickets = *matches
 				.get_one::<bool>("include-mentioned")
 				.unwrap_or(&false);
@@ -79,6 +82,19 @@ fn main() -> Result<()> {
 			let hash_length = *matches
 				.get_one::<u32>("hash-length")
 				.expect("Clap provides a default value") as usize;
+
+			// Since the filepaths can be provided all in one argument, or separately with
+			// multiple arguments, they need to be collected into a single list
+			let mut affected_filepaths = Vec::new();
+			if let Some(filepath_sets) = affected_filepath_sets {
+				for filepath_set in filepath_sets {
+					affected_filepaths.extend(
+						split_shell_words(filepath_set.as_str()).with_context(|| {
+							format!("unable to parse filepath set: {filepath_set}")
+						})?,
+					);
+				}
+			}
 
 			let commits =
 				get_complete_commit_list(repo_dir.as_str(), include_mentioned_jira_tickets)
@@ -90,7 +106,7 @@ fn main() -> Result<()> {
 				&index,
 				repo_dir.as_str(),
 				revspec.as_str(),
-				affected_filepaths.map(String::as_str),
+				affected_filepaths.as_slice(),
 			)
 			.with_context(|| "unable to perform the search")?;
 

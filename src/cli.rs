@@ -47,17 +47,21 @@ pub fn build_cli() -> Command {
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
 		.arg(
-			Arg::new("filepaths")
-				.long("filepaths")
-				.visible_alias("files")
-				.visible_alias("paths")
+			Arg::new("filepath")
+				.long("filepath")
+				.visible_alias("file")
+				.visible_alias("dir")
+				.visible_alias("directory")
+				.visible_alias("path")
 				.visible_alias("affected")
 				.num_args(1)
-				.action(ArgAction::Set)
-				.value_name("RELATIVE_PATHS")
+				.action(ArgAction::Append)
+				.value_name("RELATIVE_PATH")
 				.help(
 					"Filter the results to only commits that affected the specified \
-					 filepaths/directories.",
+					 filepaths/directories.\nThe paths should be relative to the repository root. \
+					 Multiple paths can be provided, separated by spaces, or this argument can be \
+					 provided multiple times.",
 				)
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
