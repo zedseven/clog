@@ -1,11 +1,15 @@
 //! The module for commit data collection.
 
 // Uses
-use std::{path::Path, process::Command};
+use std::{
+	collections::HashSet,
+	hash::{Hash, Hasher},
+	path::Path,
+	process::Command,
+};
 
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
-use linked_hash_set::LinkedHashSet;
 use regex::Regex;
 
 use crate::{
@@ -34,6 +38,22 @@ pub struct SvnInfo {
 pub struct ReferencedCommits {
 	pub git_commits: Vec<String>,
 	pub svn_commits: Vec<u32>,
+}
+
+// Since the Git revision is already a hash and will be unique, this
+// implementation just forwards to it.
+impl Eq for Commit {}
+
+impl PartialEq for Commit {
+	fn eq(&self, other: &Self) -> bool {
+		self.git_revision == other.git_revision
+	}
+}
+
+impl Hash for Commit {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.git_revision.hash(state);
+	}
 }
 
 pub fn get_complete_commit_list<P>(
@@ -86,9 +106,9 @@ fn process_commit_entry(entry: &str, include_referenced_jira_tickets: bool) -> R
 
 	// Search the commit message content for information
 	let mut svn_info = None;
-	let mut jira_tickets_set = LinkedHashSet::new();
-	let mut referenced_git_commits_set = LinkedHashSet::new();
-	let mut referenced_svn_commits_set = LinkedHashSet::new();
+	let mut jira_tickets_set = HashSet::new();
+	let mut referenced_git_commits_set = HashSet::new();
+	let mut referenced_svn_commits_set = HashSet::new();
 	for line in lines.iter().skip(1) {
 		// Search for the SVN metadata string
 		if svn_info.is_none() && line.starts_with(GIT_SVN_ID_STR) {
@@ -136,12 +156,12 @@ fn process_commit_entry(entry: &str, include_referenced_jira_tickets: bool) -> R
 			&*JIRA_TICKET_START_REGEX
 		};
 		for jira_ticket in jira_ticket_regex.captures_iter(line) {
-			jira_tickets_set.insert_if_absent(jira_ticket[1].to_owned());
+			jira_tickets_set.insert(jira_ticket[1].to_owned());
 		}
 
 		// Search for referenced commits (merges, etc.)
 		for git_commit_reference in GIT_COMMIT_REFERENCE_REGEX.captures_iter(line) {
-			referenced_git_commits_set.insert_if_absent(git_commit_reference[1].to_owned());
+			referenced_git_commits_set.insert(git_commit_reference[1].to_owned());
 		}
 		for svn_commit_reference_group in SVN_COMMIT_REFERENCE_REGEX.captures_iter(line) {
 			// The result of the Regex will be a comma-delimited list of continuous
@@ -161,7 +181,7 @@ fn process_commit_entry(entry: &str, include_referenced_jira_tickets: bool) -> R
 					// Insert the one commit
 					let revision = str::parse::<u32>(continuous_selection)
 						.expect("the string is guaranteed to be numeric");
-					referenced_svn_commits_set.insert_if_absent(revision);
+					referenced_svn_commits_set.insert(revision);
 				}
 			}
 		}

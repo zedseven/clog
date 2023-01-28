@@ -14,5 +14,4 @@ lto = true
 anyhow = "1.0"
 clap = "4.0"
 lazy_static = "1.4"
-linked_hash_set = "0.1"
 regex = "1.7"

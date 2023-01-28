@@ -3,6 +3,8 @@
 // Uses
 use clap::{builder::NonEmptyStringValueParser, value_parser, Arg, ArgAction, ArgGroup, Command};
 
+use crate::constants::SHA1_HASH_ASCII_LENGTH;
+
 // Constants
 pub const APPLICATION_PROPER_NAME: &str = "Merged Lists";
 pub const APPLICATION_BIN_NAME: &str = env!("CARGO_PKG_NAME");
@@ -36,8 +38,8 @@ pub fn build_cli() -> Command {
 				.required(true)
 				.help(format!(
 					"The revision(s)/reference(s) to inspect. This is passed verbatim to `git \
-					 log`.\nFor a simple revision range, use A..B where A is the earlier \
-					 commit.\nFor a merge change list, use A...B where A and B are the tips of \
+					 log`.\nFor a simple revision range, use A..B where A comes before B in the \
+					 history.\nFor a merge change list, use A...B where A and B are the tips of \
 					 the two branches being merged. Note the 3 dots in this case, instead of \
 					 2.\nFor more information, review: {}",
 					"https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection"
@@ -76,6 +78,32 @@ pub fn build_cli() -> Command {
 					"Include Jira tickets that were mentioned anywhere in the commit message, \
 					 instead of just at the beginning.",
 				),
+		)
+		.arg(
+			Arg::new("flatten")
+				.long("flatten")
+				.visible_alias("flatten-results")
+				.num_args(0..=1)
+				.default_value("false")
+				.default_missing_value("true")
+				.action(ArgAction::Set)
+				.value_name("TRUE/FALSE")
+				.value_parser(value_parser!(bool))
+				.help(
+					"Flatten the results so there is no nesting of commits or Jira tickets. The \
+					 output will be 2 distinct lists of information.",
+				),
+		)
+		.arg(
+			Arg::new("hash-length")
+				.long("hash-length")
+				.visible_alias("length")
+				.num_args(1)
+				.default_value("8")
+				.action(ArgAction::Set)
+				.value_name("LENGTH")
+				.help("The number of characters to abbreviate Git revision hashes to.")
+				.value_parser(value_parser!(u32).range(6..=SHA1_HASH_ASCII_LENGTH as i64)),
 		);
 
 	let revmap_subcommand = Command::new("revmap")

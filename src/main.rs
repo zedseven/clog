@@ -45,13 +45,15 @@ mod search;
 mod util;
 
 // Uses
+use std::collections::{HashMap, HashSet};
+
 use anyhow::{Context, Result};
 
 use crate::{
 	cli::build_cli,
-	collection::get_complete_commit_list,
+	collection::{get_complete_commit_list, Commit},
 	index::Index,
-	search::get_search_results,
+	search::{get_search_results, IncludedCommit},
 };
 
 // Entry Point
@@ -72,6 +74,10 @@ fn main() -> Result<()> {
 			let include_referenced_jira_tickets = *matches
 				.get_one::<bool>("referenced-tickets")
 				.unwrap_or(&false);
+			let flatten = *matches.get_one::<bool>("flatten").unwrap_or(&false);
+			let hash_length = *matches
+				.get_one::<u32>("hash-length")
+				.expect("Clap provides a default value") as usize;
 
 			let commits =
 				get_complete_commit_list(repo_dir.as_str(), include_referenced_jira_tickets)
@@ -86,6 +92,57 @@ fn main() -> Result<()> {
 				affected_filepaths.map(String::as_str),
 			)
 			.with_context(|| "unable to perform the search")?;
+
+			if flatten {
+				let mut commit_list = HashSet::new();
+				let mut jira_ticket_list = HashSet::new();
+
+				for included_commit in &search_results {
+					flatten_search_results(
+						&mut commit_list,
+						&mut jira_ticket_list,
+						included_commit,
+					);
+				}
+
+				println!("Commits: ({} total)", commit_list.len());
+				for commit in commit_list {
+					println!("- {}", &commit.git_revision[0..hash_length]);
+				}
+
+				println!();
+
+				println!("Jira tickets: ({} total)", jira_ticket_list.len());
+				for jira_ticket in jira_ticket_list {
+					println!("- {jira_ticket}");
+				}
+			} else {
+				let mut jira_ticket_groups = HashMap::new();
+
+				for included_commit in &search_results {
+					group_results_by_jira_ticket(&mut jira_ticket_groups, included_commit);
+				}
+
+				let mut jira_ticket_groups_sorted = jira_ticket_groups.iter().collect::<Vec<_>>();
+				jira_ticket_groups_sorted.sort_by_key(|entry| {
+					let (project, issue) = entry.0.split_once('-').expect(
+						"all Jira tickets should have 1 hyphen separating the project from the \
+						 issue number",
+					);
+					let issue_num = issue
+						.parse::<u32>()
+						.expect("all issue numbers should be numeric");
+					(project, issue_num)
+				});
+
+				println!("Jira tickets: ({} total)", jira_ticket_groups_sorted.len());
+				for (jira_ticket, commits) in jira_ticket_groups_sorted {
+					println!("- {jira_ticket}:");
+					for commit in commits {
+						println!("\t- {}", &commit.git_revision[0..hash_length]);
+					}
+				}
+			}
 		}
 		Some(("revmap", matches)) => {
 			let repo_dir = matches
@@ -113,4 +170,45 @@ fn main() -> Result<()> {
 	}
 
 	Ok(())
+}
+
+fn group_results_by_jira_ticket<'a>(
+	jira_ticket_groups: &mut HashMap<&'a str, Vec<&'a Commit>>,
+	included_commit: &'a IncludedCommit,
+) {
+	// Build the grouping
+	for jira_ticket in &included_commit.commit.jira_tickets {
+		jira_ticket_groups
+			.entry(jira_ticket.as_str())
+			.and_modify(|commits| commits.push(included_commit.commit))
+			.or_insert(vec![included_commit.commit]);
+	}
+
+	// Recurse over the referenced commits
+	for referenced_commit in &included_commit.referenced_commits {
+		group_results_by_jira_ticket(jira_ticket_groups, referenced_commit);
+	}
+}
+
+fn flatten_search_results<'a>(
+	commit_list: &mut HashSet<&'a Commit>,
+	jira_ticket_list: &mut HashSet<&'a str>,
+	included_commit: &'a IncludedCommit,
+) {
+	// Add the commit to the list
+	commit_list.insert(included_commit.commit);
+
+	// Collect the Jira tickets
+	jira_ticket_list.extend(
+		included_commit
+			.commit
+			.jira_tickets
+			.iter()
+			.map(String::as_str),
+	);
+
+	// Recurse over the referenced commits
+	for referenced_commit in &included_commit.referenced_commits {
+		flatten_search_results(commit_list, jira_ticket_list, referenced_commit);
+	}
 }
