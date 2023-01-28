@@ -62,12 +62,13 @@ pub fn build_cli() -> Command {
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
 		.arg(
-			Arg::new("referenced-tickets")
-				.long("referenced-tickets")
-				.visible_alias("referenced")
+			Arg::new("include-mentioned")
+				.long("include-mentioned")
+				.visible_alias("mentioned")
+				.visible_alias("mentioned-tickets")
 				// Not a fan of using "Jira" as a synonym for "ticket", but it makes sense as an
 				// alias
-				.visible_alias("referenced-jiras")
+				.visible_alias("mentioned-jiras")
 				.num_args(0..=1)
 				.default_value("false")
 				.default_missing_value("true")
@@ -91,7 +92,10 @@ pub fn build_cli() -> Command {
 				.value_parser(value_parser!(bool))
 				.help(
 					"Flatten the results so there is no nesting of commits or Jira tickets. The \
-					 output will be 2 distinct lists of information.",
+					 output will be 2 distinct lists of information.\nNote: The flattened lists \
+					 will include more Jira tickets, because the Jira tickets of the referenced \
+					 commits will also be included. (whereas, with the normal behaviour, \
+					 referenced commits' Jira tickets are ignored)",
 				),
 		)
 		.arg(

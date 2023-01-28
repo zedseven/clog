@@ -83,3 +83,20 @@ pub fn bytes_to_str(bytes: &[u8]) -> String {
 	}
 	result
 }
+
+/// Takes a Jira ticket and returns it in a format that can be used as a sorting
+/// key to avoid an ASCII sort.
+pub fn sortable_jira_ticket(jira_ticket: &str) -> (&str, u32) {
+	// Split on the hyphen
+	let (project, issue) = jira_ticket.split_once('-').expect(
+		"all Jira tickets should have 1 hyphen separating the project from the issue number",
+	);
+
+	// Parse the issue number as an integer
+	let issue_num = issue
+		.parse::<u32>()
+		.expect("all issue numbers should be numeric");
+
+	// Return the pair, so they can be used as a sorting key
+	(project, issue_num)
+}

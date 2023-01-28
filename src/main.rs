@@ -54,6 +54,7 @@ use crate::{
 	collection::{get_complete_commit_list, Commit},
 	index::Index,
 	search::{get_search_results, IncludedCommit},
+	util::sortable_jira_ticket,
 };
 
 // Entry Point
@@ -71,8 +72,8 @@ fn main() -> Result<()> {
 				.get_one::<String>("revspec")
 				.expect("Clap ensures the argument is provided");
 			let affected_filepaths = matches.get_one::<String>("filepaths");
-			let include_referenced_jira_tickets = *matches
-				.get_one::<bool>("referenced-tickets")
+			let include_mentioned_jira_tickets = *matches
+				.get_one::<bool>("include-mentioned")
 				.unwrap_or(&false);
 			let flatten = *matches.get_one::<bool>("flatten").unwrap_or(&false);
 			let hash_length = *matches
@@ -80,7 +81,7 @@ fn main() -> Result<()> {
 				.expect("Clap provides a default value") as usize;
 
 			let commits =
-				get_complete_commit_list(repo_dir.as_str(), include_referenced_jira_tickets)
+				get_complete_commit_list(repo_dir.as_str(), include_mentioned_jira_tickets)
 					.with_context(|| "unable to get the repo revision maps")?;
 
 			let index = Index::new(commits.as_slice())?;
@@ -94,53 +95,64 @@ fn main() -> Result<()> {
 			.with_context(|| "unable to perform the search")?;
 
 			if flatten {
-				let mut commit_list = HashSet::new();
-				let mut jira_ticket_list = HashSet::new();
+				// Flatten the results
+				let mut commit_set = HashSet::new();
+				let mut jira_ticket_set = HashSet::new();
 
 				for included_commit in &search_results {
-					flatten_search_results(
-						&mut commit_list,
-						&mut jira_ticket_list,
-						included_commit,
-					);
+					flatten_search_results(&mut commit_set, &mut jira_ticket_set, included_commit);
 				}
 
-				println!("Commits: ({} total)", commit_list.len());
-				for commit in commit_list {
+				// Sort the lists
+				let mut jira_ticket_list = Vec::from_iter(jira_ticket_set);
+				jira_ticket_list.sort_by_key(|jira_ticket| sortable_jira_ticket(jira_ticket));
+
+				// Display the results
+				println!("Commits: ({} total)", commit_set.len());
+				for commit in commit_set {
 					println!("- {}", &commit.git_revision[0..hash_length]);
 				}
 
 				println!();
 
-				println!("Jira tickets: ({} total)", jira_ticket_list.len());
+				if include_mentioned_jira_tickets {
+					println!(
+						"Jira tickets: ({} total, including referenced commits' tickets and \
+						 tickets mentioned anywhere in commit messages)",
+						jira_ticket_list.len()
+					);
+				} else {
+					println!(
+						"Jira tickets: ({} total, including referenced commits' tickets)",
+						jira_ticket_list.len()
+					);
+				}
 				for jira_ticket in jira_ticket_list {
 					println!("- {jira_ticket}");
 				}
 			} else {
+				// Group the commits by Jira ticket
 				let mut jira_ticket_groups = HashMap::new();
-
-				for included_commit in &search_results {
-					group_results_by_jira_ticket(&mut jira_ticket_groups, included_commit);
+				for included_commit in search_results {
+					for jira_ticket in &included_commit.commit.jira_tickets {
+						jira_ticket_groups
+							.entry(jira_ticket.as_str())
+							.and_modify(|ticket_commits: &mut Vec<IncludedCommit>| {
+								ticket_commits.push(included_commit.clone());
+							})
+							.or_insert(vec![included_commit.clone()]);
+					}
 				}
 
+				// Sort the Jira tickets
 				let mut jira_ticket_groups_sorted = jira_ticket_groups.iter().collect::<Vec<_>>();
-				jira_ticket_groups_sorted.sort_by_key(|entry| {
-					let (project, issue) = entry.0.split_once('-').expect(
-						"all Jira tickets should have 1 hyphen separating the project from the \
-						 issue number",
-					);
-					let issue_num = issue
-						.parse::<u32>()
-						.expect("all issue numbers should be numeric");
-					(project, issue_num)
-				});
+				jira_ticket_groups_sorted.sort_by_key(|entry| sortable_jira_ticket(entry.0));
 
+				// Display the results
 				println!("Jira tickets: ({} total)", jira_ticket_groups_sorted.len());
 				for (jira_ticket, commits) in jira_ticket_groups_sorted {
 					println!("- {jira_ticket}:");
-					for commit in commits {
-						println!("\t- {}", &commit.git_revision[0..hash_length]);
-					}
+					display_commit_reference_tree(commits.as_slice(), 1, hash_length);
 				}
 			}
 		}
@@ -172,21 +184,26 @@ fn main() -> Result<()> {
 	Ok(())
 }
 
-fn group_results_by_jira_ticket<'a>(
-	jira_ticket_groups: &mut HashMap<&'a str, Vec<&'a Commit>>,
-	included_commit: &'a IncludedCommit,
+fn display_commit_reference_tree(
+	included_commits: &[IncludedCommit],
+	indentation: u32,
+	hash_length: usize,
 ) {
-	// Build the grouping
-	for jira_ticket in &included_commit.commit.jira_tickets {
-		jira_ticket_groups
-			.entry(jira_ticket.as_str())
-			.and_modify(|commits| commits.push(included_commit.commit))
-			.or_insert(vec![included_commit.commit]);
-	}
+	for included_commit in included_commits {
+		// Print the indentation
+		for _ in 0..indentation {
+			print!("\t");
+		}
 
-	// Recurse over the referenced commits
-	for referenced_commit in &included_commit.referenced_commits {
-		group_results_by_jira_ticket(jira_ticket_groups, referenced_commit);
+		// Print the commit revision
+		println!("- {}", &included_commit.commit.git_revision[0..hash_length]);
+
+		// Recurse over the referenced commits
+		display_commit_reference_tree(
+			included_commit.referenced_commits.as_slice(),
+			indentation + 1,
+			hash_length,
+		);
 	}
 }
 

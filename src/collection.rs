@@ -58,7 +58,7 @@ impl Hash for Commit {
 
 pub fn get_complete_commit_list<P>(
 	repo_dir: P,
-	include_referenced_jira_tickets: bool,
+	include_mentioned_jira_tickets: bool,
 ) -> Result<Vec<Commit>>
 where
 	P: AsRef<Path>,
@@ -81,12 +81,12 @@ where
 		// entry at the top
 		.skip(1)
 		// Process each entry into a usable commit
-		.map(|entry| process_commit_entry(entry, include_referenced_jira_tickets))
+		.map(|entry| process_commit_entry(entry, include_mentioned_jira_tickets))
 		.collect::<Result<Vec<_>>>()
 		.with_context(|| "unable to process log entries")
 }
 
-fn process_commit_entry(entry: &str, include_referenced_jira_tickets: bool) -> Result<Commit> {
+fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Result<Commit> {
 	let lines = entry.lines().collect::<Vec<_>>();
 	if lines.is_empty() {
 		return Err(anyhow!(
@@ -150,7 +150,7 @@ fn process_commit_entry(entry: &str, include_referenced_jira_tickets: bool) -> R
 			static ref SVN_COMMIT_REFERENCE_REGEX: Regex =
 				Regex::new(r"(?i)\b(?:(?:commit|revision|rev)(?:s|\(s\))? |r)(\d+(?:-\d+)?(?:, ?\d+(?:-\d+)?)*)\b").unwrap();
 		}
-		let jira_ticket_regex = if include_referenced_jira_tickets {
+		let jira_ticket_regex = if include_mentioned_jira_tickets {
 			&*JIRA_TICKET_REFERENCED_REGEX
 		} else {
 			&*JIRA_TICKET_START_REGEX

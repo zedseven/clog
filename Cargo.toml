@@ -12,6 +12,6 @@ lto = true
 
 [dependencies]
 anyhow = "1.0"
-clap = "4.0"
+clap = { version = "4.0", features = ["wrap_help"] }
 lazy_static = "1.4"
 regex = "1.7"

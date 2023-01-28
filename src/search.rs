@@ -11,7 +11,7 @@ use crate::{
 	util::{inside_out_result, run_command},
 };
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct IncludedCommit<'a> {
 	pub commit:             &'a Commit,
 	pub referenced_commits: Vec<IncludedCommit<'a>>,
