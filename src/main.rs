@@ -124,14 +124,17 @@ fn main() -> Result<()> {
 				}
 
 				// Sort the lists
+				let mut commit_list = Vec::from_iter(commit_set);
 				let mut jira_ticket_list = Vec::from_iter(jira_ticket_set);
+
+				commit_list.sort_unstable_by_key(|commit| commit.visitation_num);
 				jira_ticket_list
 					.sort_unstable_by_key(|jira_ticket| sortable_jira_ticket(jira_ticket));
 
 				// Display the results
-				println!("Commits: ({} total)", commit_set.len());
-				for commit in commit_set {
-					println!("- {}", &commit.git_revision[0..hash_length]);
+				println!("Commits: ({} total)", commit_list.len());
+				for commit in commit_list {
+					println!("- {}", &commit.commit.git_revision[0..hash_length]);
 				}
 
 				println!();
@@ -248,12 +251,12 @@ fn display_commit_reference_tree(
 }
 
 fn flatten_search_results<'a>(
-	commit_list: &mut HashSet<&'a Commit>,
+	commit_list: &mut HashSet<&'a IncludedCommit<'a>>,
 	jira_ticket_list: &mut HashSet<&'a str>,
-	included_commit: &'a IncludedCommit,
+	included_commit: &'a IncludedCommit<'a>,
 ) {
 	// Add the commit to the list
-	commit_list.insert(included_commit.commit);
+	commit_list.insert(included_commit);
 
 	// Collect the Jira tickets
 	jira_ticket_list.extend(

@@ -100,9 +100,6 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	}
 
 	let git_revision = git_revision_str.to_owned();
-	// let git_revision =
-	// 	vec_to_arr(parse_hex_str(git_revision_str).with_context(|| "unable to parse
-	// SHA-1 hash")?);
 
 	// Search the commit message content for information
 	let mut svn_info = None;

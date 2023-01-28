@@ -1,7 +1,12 @@
 //! The module for searching the repo for specific commit data.
 
 // Uses
-use std::{collections::HashSet, path::Path, process::Command};
+use std::{
+	collections::HashSet,
+	hash::{Hash, Hasher},
+	path::Path,
+	process::Command,
+};
 
 use anyhow::{Context, Result};
 
@@ -15,6 +20,23 @@ use crate::{
 pub struct IncludedCommit<'a> {
 	pub commit:             &'a Commit,
 	pub referenced_commits: Vec<IncludedCommit<'a>>,
+	pub visitation_num:     usize,
+}
+
+// Since the Git revision is already a hash and will be unique, this
+// implementation just forwards to it.
+impl<'a> Eq for IncludedCommit<'a> {}
+
+impl<'a> PartialEq for IncludedCommit<'a> {
+	fn eq(&self, other: &Self) -> bool {
+		self.commit == other.commit
+	}
+}
+
+impl<'a> Hash for IncludedCommit<'a> {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.commit.hash(state);
+	}
 }
 
 pub fn get_search_results<'a, P>(
@@ -126,5 +148,6 @@ fn visit_commit<'a>(
 	Ok(Some(IncludedCommit {
 		commit,
 		referenced_commits,
+		visitation_num: visited_commits.len(),
 	}))
 }
