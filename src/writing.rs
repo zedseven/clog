@@ -1,3 +1,5 @@
+//! The module that handles writing revision maps to disk.
+
 // Uses
 use std::{fs::File, io::Write, path::Path};
 
