@@ -4,19 +4,12 @@
 use std::{collections::HashSet, path::Path, process::Command};
 
 use anyhow::{Context, Result};
-use linked_hash_set::LinkedHashSet;
 
 use crate::{
 	collection::Commit,
 	index::Index,
 	util::{inside_out_result, run_command},
 };
-
-#[derive(Debug)]
-pub struct SearchResults<'a> {
-	pub included_commits:      Vec<IncludedCommit<'a>>,
-	pub included_jira_tickets: Vec<&'a str>,
-}
 
 #[derive(Debug)]
 pub struct IncludedCommit<'a> {
@@ -29,13 +22,10 @@ pub fn get_search_results<'a, P>(
 	repo_dir: P,
 	revspec: &str,
 	affected_filepaths: Option<&str>,
-) -> Result<SearchResults<'a>>
+) -> Result<Vec<IncludedCommit<'a>>>
 where
 	P: AsRef<Path>,
 {
-	dbg!(revspec);
-	dbg!(affected_filepaths);
-
 	// Prepare the `git log` command for the search
 	let mut command = Command::new("git");
 	command
@@ -50,12 +40,10 @@ where
 
 	// Run the command
 	let commit_list = run_command(command).with_context(|| "unable to get the repo log")?;
-	dbg!(&commit_list);
 
 	// Process each commit and build a final list of all tickets, commits, merges,
 	// etc.
 	let mut visited_commits = HashSet::new();
-	let mut jira_tickets_set = LinkedHashSet::new();
 
 	let included_commits = commit_list
 		.lines()
@@ -67,35 +55,24 @@ where
 					.expect("all commits returned as search results should be in the index")
 			})
 		})
-		.map(|commit| visit_commit(index, &mut visited_commits, &mut jira_tickets_set, commit))
+		.map(|commit| visit_commit(index, &mut visited_commits, commit))
 		.filter_map(inside_out_result)
 		.collect::<Result<Vec<_>>>()
 		.with_context(|| "unable to process the commit search results")?;
 
-	Ok(SearchResults {
-		included_commits,
-		included_jira_tickets: Vec::from_iter(jira_tickets_set),
-	})
+	Ok(included_commits)
 }
 
 fn visit_commit<'a>(
 	index: &Index<'a>,
 	visited_commits: &mut HashSet<&'a str>,
-	jira_tickets_set: &mut LinkedHashSet<&'a str>,
 	commit: &'a Commit,
 ) -> Result<Option<IncludedCommit<'a>>> {
-	dbg!(&visited_commits);
-	dbg!(&jira_tickets_set);
-	dbg!(&commit);
-
 	// Store the commit in the visited list and check to ensure that it's new
 	let visited_previously = !visited_commits.insert(commit.git_revision.as_str());
 	if visited_previously {
 		return Ok(None);
 	}
-
-	// Collect the Jira tickets
-	jira_tickets_set.extend(commit.jira_tickets.iter().map(String::as_str));
 
 	// Prepare the collection for referenced commits
 	let mut referenced_commits = Vec::new();
@@ -110,9 +87,8 @@ fn visit_commit<'a>(
 			}
 
 			// Process the referenced commit
-			if let Some(referenced) =
-				visit_commit(index, visited_commits, jira_tickets_set, referenced_commit)
-					.with_context(|| "recursive operation failed")?
+			if let Some(referenced) = visit_commit(index, visited_commits, referenced_commit)
+				.with_context(|| "recursive operation failed")?
 			{
 				referenced_commits.push(referenced);
 			}
@@ -134,9 +110,8 @@ fn visit_commit<'a>(
 			}
 
 			// Process the referenced commit
-			if let Some(referenced) =
-				visit_commit(index, visited_commits, jira_tickets_set, referenced_commit)
-					.with_context(|| "recursive operation failed")?
+			if let Some(referenced) = visit_commit(index, visited_commits, referenced_commit)
+				.with_context(|| "recursive operation failed")?
 			{
 				referenced_commits.push(referenced);
 			}
