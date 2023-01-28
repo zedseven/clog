@@ -1,7 +1,7 @@
 //! Provides the CLI for the program.
 
 // Uses
-use clap::{builder::NonEmptyStringValueParser, Arg, ArgAction, ArgGroup, Command};
+use clap::{builder::NonEmptyStringValueParser, value_parser, Arg, ArgAction, ArgGroup, Command};
 
 // Constants
 pub const APPLICATION_PROPER_NAME: &str = "Merged Lists";
@@ -21,8 +21,8 @@ pub fn build_cli() -> Command {
 		.value_parser(NonEmptyStringValueParser::new());
 
 	let list_subcommand = Command::new("list")
-        .about("Generates lists of information based on a provided revspec.")
-        .arg_required_else_help(true)
+		.about("Generates lists of information based on a provided revspec.")
+		.arg_required_else_help(true)
 		.arg(repo_arg.clone())
 		.arg(
 			Arg::new("revspec")
@@ -34,11 +34,48 @@ pub fn build_cli() -> Command {
 				.action(ArgAction::Set)
 				.value_name("REVSPEC")
 				.required(true)
-				.help(
+				.help(format!(
 					"The revision(s)/reference(s) to inspect. This is passed verbatim to `git \
-					 log`.\nReview https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection for more information.",
+					 log`.\nFor a simple revision range, use A..B where A is the earlier \
+					 commit.\nFor a merge change list, use A...B where A and B are the tips of \
+					 the two branches being merged. Note the 3 dots in this case, instead of \
+					 2.\nFor more information, review: {}",
+					"https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection"
+				))
+				.value_parser(NonEmptyStringValueParser::new()),
+		)
+		.arg(
+			Arg::new("filepaths")
+				.long("filepaths")
+				.visible_alias("files")
+				.visible_alias("paths")
+				.visible_alias("affected")
+				.num_args(1)
+				.action(ArgAction::Set)
+				.value_name("RELATIVE_PATHS")
+				.help(
+					"Filter the results to only commits that affected the specified \
+					 filepaths/directories.",
 				)
 				.value_parser(NonEmptyStringValueParser::new()),
+		)
+		.arg(
+			Arg::new("referenced-tickets")
+				.long("referenced-tickets")
+				.visible_alias("referenced")
+				// Not a fan of using "Jira" as a synonym for "ticket", but it makes sense as an
+				// alias
+				.visible_alias("referenced-jiras")
+				.num_args(0..=1)
+				.default_value("false")
+				.default_missing_value("true")
+				.action(ArgAction::Set)
+				.value_name("TRUE/FALSE")
+				.value_parser(value_parser!(bool))
+				.help(
+					"Include Jira tickets that were mentioned anywhere in the commit message, \
+					 instead of just at the beginning.",
+				),
 		);
 
 	let revmap_subcommand = Command::new("revmap")

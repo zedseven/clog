@@ -1,121 +1,72 @@
+//! The module for commit data collection.
+
 // Uses
-use std::{path::Path, process::Command, str::from_utf8 as str_from_utf8};
+use std::{path::Path, process::Command};
 
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
 use linked_hash_set::LinkedHashSet;
 use regex::Regex;
 
-// Constants
-const SHA1_HASH_LENGTH: usize = 20;
-const SHA1_HASH_ASCII_LENGTH: usize = SHA1_HASH_LENGTH * 2;
-const GIT_SVN_ID_STR: &str = "git-svn-id";
-const LOG_COMMIT_DELIMITER: &str = "CLOG-COMMIT-DELIMITER\n";
-const MAX_ALLOWED_REFERENCED_COMMITS: usize = 20; // To help prevent errors where 500 commits get pulled in
+use crate::{
+	constants::{GIT_SVN_ID_STR, SHA1_HASH_ASCII_LENGTH},
+	util::run_command,
+};
 
-// Types and Structures
-pub type Sha1Hash = [u8; SHA1_HASH_LENGTH];
-pub type GitRevision = String; // It has to stay in String format so that it remains searchable
-pub type GitRevisionPartial = String;
-pub type SvnRevision = u32;
-pub type JiraTicket = String;
+// Constants
+const LOG_COMMIT_DELIMITER: &str = "CLOG-COMMIT-DELIMITER\n";
 
 #[derive(Debug)]
 pub struct Commit {
-	pub git_revision: GitRevision,
-	pub svn_info: Option<SvnInfo>,
-	pub jira_tickets: Vec<JiraTicket>,
+	pub git_revision:       String,
+	pub svn_info:           Option<SvnInfo>,
+	pub jira_tickets:       Vec<String>,
 	pub referenced_commits: ReferencedCommits,
 }
 
 #[derive(Debug)]
 pub struct SvnInfo {
-	pub svn_url: String,
-	pub svn_revision: SvnRevision,
+	pub svn_url:      String,
+	pub svn_revision: u32,
 }
 
 #[derive(Debug)]
 pub struct ReferencedCommits {
-	pub git_commits: Vec<GitRevisionPartial>,
-	pub svn_commits: Vec<SvnRevision>,
+	pub git_commits: Vec<String>,
+	pub svn_commits: Vec<u32>,
 }
 
-pub fn get_repo_revision_maps<P>(repo_dir: P) -> Result<Vec<Commit>>
+pub fn get_complete_commit_list<P>(
+	repo_dir: P,
+	include_referenced_jira_tickets: bool,
+) -> Result<Vec<Commit>>
 where
 	P: AsRef<Path>,
 {
-	process_log_data(
-		get_complete_log(repo_dir)
-			.with_context(|| "unable to get the git repo log")?
-			.as_str(),
-	)
-	.with_context(|| "log data is invalid")
-}
-
-fn get_complete_log<P>(repo_dir: P) -> Result<String>
-where
-	P: AsRef<Path>,
-{
-	let command_result = Command::new("git")
+	// Prepare the `git log` command for collecting all commits in the repo
+	let mut command = Command::new("git");
+	command
 		.arg("log")
 		.arg("--all")
 		.arg("--full-history")
 		.arg(format!("--pretty=format:{LOG_COMMIT_DELIMITER}%H\n%s\n%b"))
-		.current_dir(repo_dir)
-		.output()
-		.with_context(|| "unable to run git to get the repo log")?;
-	if !command_result.status.success() {
-		return Err(anyhow!(
-			"Git command failed: {:?}",
-			command_result.status.code()
-		));
-	}
+		.current_dir(repo_dir);
 
-	str_from_utf8(&command_result.stdout)
-		.with_context(|| "unable to parse git command output as UTF-8")
-		.map(ToOwned::to_owned)
-}
-
-fn get_revspec_log<P>(repo_dir: P, revspec: &str) -> Result<String>
-where
-	P: AsRef<Path>,
-{
-	let command_result = Command::new("git")
-		.arg("log")
-		.arg("--pretty=format:%H") // Just the hashes
-		.arg(revspec)
-		.current_dir(repo_dir)
-		.output()
-		.with_context(|| "unable to run git to get the repo log")?;
-	if !command_result.status.success() {
-		return Err(anyhow!(
-			"Git command failed: {:?}",
-			command_result.status.code()
-		));
-	}
-
-	str_from_utf8(&command_result.stdout)
-		.with_context(|| "unable to parse git command output as UTF-8")
-		.map(ToOwned::to_owned)
-}
-
-fn process_log_data(git_log: &str) -> Result<Vec<Commit>> {
-	let result = git_log
+	// Run the command
+	run_command(command)
+		.with_context(|| "unable to get the repo log")?
+		// Split the output by the delimiter to get one entry per commit
 		.split(LOG_COMMIT_DELIMITER)
+		// Since it's a split() operation, the first delimiter at the beginning leads to an empty
+		// entry at the top
 		.skip(1)
-		.map(process_commit_entry)
+		// Process each entry into a usable commit
+		.map(|entry| process_commit_entry(entry, include_referenced_jira_tickets))
 		.collect::<Result<Vec<_>>>()
-		.with_context(|| "unable to process log entries")?;
-
-	// Sort the results
-	// result.sort_by_key(|mapping| mapping.svn_revision);
-
-	dbg!(&result);
-
-	Ok(result)
+		.with_context(|| "unable to process log entries")
 }
 
-fn process_commit_entry(entry: &str) -> Result<Commit> {
+fn process_commit_entry(entry: &str, include_referenced_jira_tickets: bool) -> Result<Commit> {
 	let lines = entry.lines().collect::<Vec<_>>();
 	if lines.is_empty() {
 		return Err(anyhow!(
@@ -168,7 +119,9 @@ fn process_commit_entry(entry: &str) -> Result<Commit> {
 
 		// Search for Jira tickets
 		lazy_static! {
-			static ref JIRA_TICKET_REGEX: Regex =
+			static ref JIRA_TICKET_START_REGEX: Regex =
+				Regex::new(r"^\s*([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap();
+			static ref JIRA_TICKET_REFERENCED_REGEX: Regex =
 				Regex::new(r"\b([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap();
 			/// Matches any Git commit hashes 7 characters or longer (to avoid matching small numbers that show up for other reasons)
 			static ref GIT_COMMIT_REFERENCE_REGEX: Regex =
@@ -177,7 +130,12 @@ fn process_commit_entry(entry: &str) -> Result<Commit> {
 			static ref SVN_COMMIT_REFERENCE_REGEX: Regex =
 				Regex::new(r"(?i)\b(?:(?:commit|revision|rev)(?:s|\(s\))? |r)(\d+(?:-\d+)?(?:, ?\d+(?:-\d+)?)*)\b").unwrap();
 		}
-		for jira_ticket in JIRA_TICKET_REGEX.captures_iter(line) {
+		let jira_ticket_regex = if include_referenced_jira_tickets {
+			&*JIRA_TICKET_REFERENCED_REGEX
+		} else {
+			&*JIRA_TICKET_START_REGEX
+		};
+		for jira_ticket in jira_ticket_regex.captures_iter(line) {
 			jira_tickets_set.insert_if_absent(jira_ticket[1].to_owned());
 		}
 
@@ -194,14 +152,14 @@ fn process_commit_entry(entry: &str) -> Result<Commit> {
 				let continuous_selection = continuous_selection.trim();
 				if let Some((start, end)) = continuous_selection.split_once('-') {
 					// Insert all commits in the range
-					let start_revision = str::parse::<SvnRevision>(start)
-						.expect("the string is guaranteed to be numeric");
-					let end_revision = str::parse::<SvnRevision>(end)
-						.expect("the string is guaranteed to be numeric");
+					let start_revision =
+						str::parse::<u32>(start).expect("the string is guaranteed to be numeric");
+					let end_revision =
+						str::parse::<u32>(end).expect("the string is guaranteed to be numeric");
 					referenced_svn_commits_set.extend(start_revision..=end_revision);
 				} else {
 					// Insert the one commit
-					let revision = str::parse::<SvnRevision>(continuous_selection)
+					let revision = str::parse::<u32>(continuous_selection)
 						.expect("the string is guaranteed to be numeric");
 					referenced_svn_commits_set.insert_if_absent(revision);
 				}

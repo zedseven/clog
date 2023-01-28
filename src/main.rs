@@ -38,13 +38,21 @@
 
 // Modules
 mod cli;
-mod retrieval;
+mod collection;
+mod constants;
+mod index;
+mod search;
 mod util;
 
 // Uses
 use anyhow::{Context, Result};
 
-use crate::{cli::build_cli, retrieval::get_repo_revision_maps};
+use crate::{
+	cli::build_cli,
+	collection::get_complete_commit_list,
+	index::Index,
+	search::get_search_results,
+};
 
 // Entry Point
 fn main() -> Result<()> {
@@ -53,17 +61,36 @@ fn main() -> Result<()> {
 
 	match subcommand_matches.subcommand() {
 		Some(("list", matches)) => {
+			// Get the CLI arguments that were provided
 			let repo_dir = matches
 				.get_one::<String>("repo")
 				.expect("Clap ensures the argument is provided");
+			let revspec = matches
+				.get_one::<String>("revspec")
+				.expect("Clap ensures the argument is provided");
+			let affected_filepaths = matches.get_one::<String>("filepaths");
+			let include_referenced_jira_tickets = *matches
+				.get_one::<bool>("referenced-tickets")
+				.unwrap_or(&false);
+
+			let commits =
+				get_complete_commit_list(repo_dir.as_str(), include_referenced_jira_tickets)
+					.with_context(|| "unable to get the repo revision maps")?;
+
+			let index = Index::new(commits.as_slice())?;
+
+			let search_results = get_search_results(
+				&index,
+				repo_dir.as_str(),
+				revspec.as_str(),
+				affected_filepaths.map(String::as_str),
+			)
+			.with_context(|| "unable to perform the search")?;
 		}
 		Some(("revmap", matches)) => {
 			let repo_dir = matches
 				.get_one::<String>("repo")
 				.expect("Clap ensures the argument is provided");
-
-			let revision_maps = get_repo_revision_maps(repo_dir.as_str())
-				.with_context(|| "unable to get the repo revision maps")?;
 
 			// if let Some(path) = matches.get_one::<String>("binary") {
 			// 	write_to_bin(path, revision_maps.as_slice())
