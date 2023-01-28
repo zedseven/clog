@@ -98,6 +98,14 @@ fn main() -> Result<()> {
 				}
 			}
 
+			// Display the filepaths being considered
+			if !affected_filepaths.is_empty() {
+				println!("Only considering commits that affected the following filepaths:");
+				for affected_filepath in &affected_filepaths {
+					println!("- {affected_filepath}");
+				}
+			}
+
 			// Collect all commits in the repo
 			let commits =
 				get_complete_commit_list(repo_dir.as_str(), include_mentioned_jira_tickets)
