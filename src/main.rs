@@ -75,6 +75,8 @@ fn main() -> Result<()> {
 				.get_one::<String>("revspec")
 				.expect("Clap ensures the argument is provided");
 			let affected_filepath_sets = matches.get_many::<String>("filepath");
+			let include_merge_commits =
+				*matches.get_one::<bool>("include-merges").unwrap_or(&false);
 			let include_mentioned_jira_tickets = *matches
 				.get_one::<bool>("include-mentioned")
 				.unwrap_or(&false);
@@ -109,6 +111,7 @@ fn main() -> Result<()> {
 				&index,
 				repo_dir.as_str(),
 				revspec.as_str(),
+				include_merge_commits,
 				affected_filepaths.as_slice(),
 			)
 			.with_context(|| "unable to perform the search")?;

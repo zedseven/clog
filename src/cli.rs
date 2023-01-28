@@ -75,6 +75,23 @@ pub fn build_cli() -> Command {
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
 		.arg(
+			Arg::new("include-merges")
+				.long("include-merges")
+				.visible_alias("merges")
+				.visible_alias("merge-commits")
+				.visible_alias("include-merge-commits")
+				.num_args(0..=1)
+				.default_value("false")
+				.default_missing_value("true")
+				.action(ArgAction::Set)
+				.value_name("TRUE/FALSE")
+				.value_parser(value_parser!(bool))
+				.help(
+					"Include merge commits in the results.\nThis is off by default because they \
+					 don't add much to the resulting data, and tend to bloat the results.",
+				),
+		)
+		.arg(
 			Arg::new("include-mentioned")
 				.long("include-mentioned")
 				.visible_alias("mentioned")
@@ -114,6 +131,7 @@ pub fn build_cli() -> Command {
 		.arg(hash_length_arg.clone());
 
 	let revmap_subcommand = Command::new("revmap")
+		.visible_alias("build-revmap") // Since `clog` started as `build-revmap`
 		.visible_alias("svn-revmap")
 		.about(
 			"Generates an SVN to Git revision map based on the metadata in commit messages, \

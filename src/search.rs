@@ -43,6 +43,7 @@ pub fn get_search_results<'a, P>(
 	index: &Index<'a>,
 	repo_dir: P,
 	revspec: &str,
+	include_merge_commits: bool,
 	affected_filepaths: &[String],
 ) -> Result<Vec<IncludedCommit<'a>>>
 where
@@ -55,6 +56,9 @@ where
 		.arg("--pretty=format:%H") // Just the hashes
 		.arg(revspec)
 		.current_dir(repo_dir);
+	if !include_merge_commits {
+		command.arg("--no-merges");
+	}
 	if !affected_filepaths.is_empty() {
 		command.arg("--"); // This is necessary to separate the filepaths from the revspec/commits
 		command.args(affected_filepaths);
