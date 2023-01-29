@@ -1,13 +1,20 @@
-# build-revmap
+# clog
 [![License: MIT/Apache-2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
-A simple utility for building a revision map for a Git repo that was converted from an SVN
-repository by `git-svn` with the `--metadata` flag supplied.
+A utility for pulling information from the Git commit log of a repo, then processing it into actionable data.
+The name comes from the phrase "Commit Log", but you can also think of it as the kind of shoe.
 
-This tool relies on the line that `git-svn` adds to the end of every commit message, with the SVN URL and revision number.
+It works by calling `git log` internally then processing the data, following referenced commit revisions, collecting
+Jira tickets, etc., then displaying the information in a useful way.
 
-It can output the revision map in Markdown format, or in binary format
+This tool relies on the line that `git-svn` adds to the end of every commit message when its `--metadata` flag is
+provided, which contains the SVN URL and revision number.
+
+It can also generate an SVN to Git revision map from this information, in Markdown or in binary format
 ([similar to what `git-svn` itself uses](https://github.com/git/git/blob/eea7033409a0ed713c78437fc76486983d211e25/perl/Git/SVN.pm#L2188-L2214)).
+
+Please note that this tool is somewhat specialised, and may not be useful out of the box for other people's use-cases.
+Feel free to [open an issue](https://github.com/zedseven/clog/issues/new) or submit a PR if you have something to add.
 
 ## Project License
 This project is licensed under either of
@@ -21,5 +28,5 @@ at your option.
 
 ### Contribution
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in *build-revmap* by you, as defined in the Apache-2.0 license,
+for inclusion in *clog* by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
