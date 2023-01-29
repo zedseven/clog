@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use shell_words::split as split_shell_words;
 
 use crate::{
 	collection::Commit,
@@ -49,12 +50,17 @@ pub fn get_search_results<'a, P>(
 where
 	P: AsRef<Path>,
 {
+	// Split the provided revspec into separate arguments so that Git understands
+	// them (this is so that the revspec can be provided with spaces)
+	let revspec_args = split_shell_words(revspec)
+		.with_context(|| "unable to parse the revspec into separate arguments")?;
+
 	// Prepare the `git log` command for the search
 	let mut command = Command::new("git");
 	command
 		.arg("log")
 		.arg("--pretty=format:%H") // Just the hashes
-		.arg(revspec)
+		.args(revspec_args.as_slice())
 		.current_dir(repo_dir);
 	if !include_merge_commits {
 		command.arg("--no-merges");
