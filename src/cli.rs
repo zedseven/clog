@@ -6,8 +6,15 @@ use clap::{builder::NonEmptyStringValueParser, value_parser, Arg, ArgAction, Arg
 use crate::constants::SHA1_HASH_ASCII_LENGTH;
 
 // Constants
-pub const APPLICATION_PROPER_NAME: &str = "Merged Lists";
+pub const APPLICATION_PROPER_NAME: &str = "CLog";
 pub const APPLICATION_BIN_NAME: &str = env!("CARGO_PKG_NAME");
+const HELP_TEMPLATE: &str = "\
+{before-help}{name} {version}
+{author-with-newline}{about-with-newline}
+{usage-heading} {usage}
+
+{all-args}{after-help}
+";
 
 /// Builds the command-line interface.
 pub fn build_cli() -> Command {
@@ -170,6 +177,7 @@ pub fn build_cli() -> Command {
 		.version(env!("CARGO_PKG_VERSION"))
 		.author(env!("CARGO_PKG_AUTHORS"))
 		.about(env!("CARGO_PKG_DESCRIPTION"))
+		.help_template(HELP_TEMPLATE)
 		.arg_required_else_help(true)
 		.help_expected(true)
 		.subcommand(list_subcommand)
