@@ -10,6 +10,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use lazy_static::lazy_static;
+use linked_hash_set::LinkedHashSet;
 use regex::Regex;
 
 use crate::{
@@ -104,8 +105,8 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	// Search the commit message content for information
 	let mut svn_info = None;
 	let mut jira_tickets_set = HashSet::new();
-	let mut referenced_git_commits_set = HashSet::new();
-	let mut referenced_svn_commits_set = HashSet::new();
+	let mut referenced_git_commits_set = LinkedHashSet::new();
+	let mut referenced_svn_commits_set = LinkedHashSet::new();
 	let mut first_line = true;
 	for line in lines.iter().skip(1) {
 		// Search for the SVN metadata string
