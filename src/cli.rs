@@ -43,10 +43,13 @@ pub fn build_cli() -> Command {
 				.required(true)
 				.help(format!(
 					"The revision(s)/reference(s) to inspect. This is passed verbatim to `git \
-					 log`.\nFor a simple revision range, use A..B where A comes before B in the \
-					 history.\nFor a merge change list, use A...B where A and B are the tips of \
-					 the two branches being merged. Note the 3 dots in this case, instead of \
-					 2.\nFor more information, review: {}",
+					 log`.\nFor a simple revision range, use `A..B` (without quotes) where A \
+					 comes before B in the history.\nFor a list of all changes to be merged \
+					 together (on both branches), use `A...B` where A and B are the tips of the \
+					 two branches being merged. Note the 3 dots in this case, instead of 2.\nFor \
+					 a list of all changes that will be merged into another branch, use `A ^B` \
+					 where B is the base branch, and A is the branch to be merged into B.\nFor \
+					 more information, review: {}",
 					"https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection"
 				))
 				.value_parser(NonEmptyStringValueParser::new()),
