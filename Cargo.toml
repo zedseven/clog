@@ -4,6 +4,8 @@ version = "0.3.0"
 authors = ["Zacchary Dempsey-Plante <zacc@ztdp.ca>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/zedseven/clog"
+homepage = "https://github.com/zedseven/clog"
 description = """\
 A utility for pulling information from the Git commit log of a repo, then processing it into actionable data. \
 The name comes from the phrase \"Commit Log\", but you can also think of it as the kind of shoe.\
