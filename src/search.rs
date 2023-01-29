@@ -71,13 +71,8 @@ where
 	}
 
 	// Run the command
-	let commit_list = run_command(command).with_context(|| "unable to get the repo log")?;
-
-	// Process each commit and build a final list of all tickets, commits, merges,
-	// etc.
-	let mut visited_commits = HashSet::new();
-
-	let included_commits = commit_list
+	let commit_list_raw = run_command(command).with_context(|| "unable to get the repo log")?;
+	let commit_list = commit_list_raw
 		.lines()
 		.filter_map(|line| {
 			let line = line.trim();
@@ -87,7 +82,30 @@ where
 					.expect("all commits returned as search results should be in the index")
 			})
 		})
-		.map(|commit| visit_commit(index, &mut visited_commits, commit))
+		.collect::<Vec<_>>();
+
+	// This exists to prevent circular references and processing the same commit
+	// multiple times
+	let mut visited_commits = HashSet::new();
+
+	// The need for this is a little bizarre. Basically, we want direct search
+	// results to always appear on the top level (no nesting), so their Jira tickets
+	// get processed etc. To accomplish this, we preliminarily block them from being
+	// processed recursively.
+	// The `recursion_has_happened` flag is always false for the top-level
+	// processing, but in all recursive processing, it's true. When false, we ignore
+	// the `visited_commits` list altogether.
+	visited_commits.extend(
+		commit_list
+			.iter()
+			.map(|commit| commit.git_revision.as_str()),
+	);
+
+	// Process each commit and build a final list of all tickets, commits, merges,
+	// etc.
+	let included_commits = commit_list
+		.iter()
+		.map(|commit| visit_commit(index, &mut visited_commits, false, commit))
 		.filter_map(inside_out_result)
 		.collect::<Result<Vec<_>>>()
 		.with_context(|| "unable to process the commit search results")?;
@@ -98,11 +116,12 @@ where
 fn visit_commit<'a>(
 	index: &Index<'a>,
 	visited_commits: &mut HashSet<&'a str>,
+	recursion_has_happened: bool,
 	commit: &'a Commit,
 ) -> Result<Option<IncludedCommit<'a>>> {
 	// Store the commit in the visited list and check to ensure that it's new
 	let visited_previously = !visited_commits.insert(commit.git_revision.as_str());
-	if visited_previously {
+	if recursion_has_happened && visited_previously {
 		return Ok(None);
 	}
 
@@ -119,7 +138,7 @@ fn visit_commit<'a>(
 			}
 
 			// Process the referenced commit
-			if let Some(referenced) = visit_commit(index, visited_commits, referenced_commit)
+			if let Some(referenced) = visit_commit(index, visited_commits, true, referenced_commit)
 				.with_context(|| "recursive operation failed")?
 			{
 				referenced_commits.push(referenced);
@@ -142,7 +161,7 @@ fn visit_commit<'a>(
 			}
 
 			// Process the referenced commit
-			if let Some(referenced) = visit_commit(index, visited_commits, referenced_commit)
+			if let Some(referenced) = visit_commit(index, visited_commits, true, referenced_commit)
 				.with_context(|| "recursive operation failed")?
 			{
 				referenced_commits.push(referenced);
