@@ -37,10 +37,6 @@ pub fn build_cli() -> Command {
 		.arg(repo_arg.clone())
 		.arg(
 			Arg::new("revspec")
-				.long("revspec")
-				.visible_alias("revision")
-				.visible_alias("spec")
-				.visible_alias("range")
 				.num_args(1)
 				.action(ArgAction::Set)
 				.value_name("REVSPEC")
