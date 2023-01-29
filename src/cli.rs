@@ -19,6 +19,7 @@ const HELP_TEMPLATE: &str = "\
 /// Builds the command-line interface.
 pub fn build_cli() -> Command {
 	let repo_arg = Arg::new("repo")
+		.short('r')
 		.long("repo")
 		.visible_alias("repository")
 		.visible_alias("git-repo")
@@ -29,6 +30,7 @@ pub fn build_cli() -> Command {
 		.help("The path to the Git repository to read from.")
 		.value_parser(NonEmptyStringValueParser::new());
 	let hash_length_arg = Arg::new("hash-length")
+		.short('l')
 		.long("hash-length")
 		.visible_alias("length")
 		.num_args(1)
@@ -63,7 +65,9 @@ pub fn build_cli() -> Command {
 		)
 		.arg(
 			Arg::new("filepath")
+				.short('p')
 				.long("filepath")
+				.visible_short_alias('p')
 				.visible_alias("file")
 				.visible_alias("dir")
 				.visible_alias("directory")
@@ -82,6 +86,7 @@ pub fn build_cli() -> Command {
 		)
 		.arg(
 			Arg::new("include-merges")
+				.short('m')
 				.long("include-merges")
 				.visible_alias("merges")
 				.visible_alias("merge-commits")
@@ -118,6 +123,7 @@ pub fn build_cli() -> Command {
 		)
 		.arg(
 			Arg::new("flatten")
+				.short('f')
 				.long("flatten")
 				.visible_alias("flatten-results")
 				.num_args(0..=1)
@@ -153,6 +159,7 @@ pub fn build_cli() -> Command {
 		)
 		.arg(
 			Arg::new("binary")
+				.short('b')
 				.long("binary")
 				.visible_alias("bin")
 				.num_args(1)
@@ -163,6 +170,7 @@ pub fn build_cli() -> Command {
 		)
 		.arg(
 			Arg::new("markdown")
+				.short('m')
 				.long("markdown")
 				.visible_alias("md")
 				.num_args(1)
