@@ -85,6 +85,9 @@ fn main() -> Result<()> {
 				.get_one::<u32>("hash-length")
 				.expect("Clap provides a default value") as usize;
 
+			// Print the revspec used
+			println!("Using the following revspec: `{revspec}`");
+
 			// Since the filepaths can be provided all in one argument, or separately with
 			// multiple arguments, they need to be collected into a single list
 			let mut affected_filepaths = Vec::new();
@@ -97,13 +100,15 @@ fn main() -> Result<()> {
 					);
 				}
 			}
+			affected_filepaths.sort_unstable();
 
 			// Display the filepaths being considered
 			if !affected_filepaths.is_empty() {
 				println!("Only considering commits that affected the following filepaths:");
 				for affected_filepath in &affected_filepaths {
-					println!("- {affected_filepath}");
+					println!("- `{affected_filepath}`");
 				}
+				println!();
 			}
 
 			// Collect all commits in the repo
@@ -125,6 +130,7 @@ fn main() -> Result<()> {
 			.with_context(|| "unable to perform the search")?;
 
 			// Display the results
+			println!();
 			if flatten {
 				// Flatten the results
 				let mut commit_set = HashSet::new();
