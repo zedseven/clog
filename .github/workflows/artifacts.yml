@@ -43,7 +43,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v3
         with:
-          name: ParseEMV (Linux)
+          name: clog (Linux)
           path: ./target/release/clog
           if-no-files-found: error
 
@@ -51,6 +51,6 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v3
         with:
-          name: ParseEMV (Windows)
+          name: clog (Windows)
           path: ./target/release/clog.exe
           if-no-files-found: error
