@@ -61,6 +61,9 @@ use crate::{
 	writing::{write_to_bin, write_to_markdown},
 };
 
+// Constants
+const NO_JIRA_TICKET_STR: &str = "<No Jira ticket>";
+
 // Entry Point
 fn main() -> Result<()> {
 	let cli_definition = build_cli();
@@ -128,13 +131,19 @@ fn main() -> Result<()> {
 
 			// Group the commits by Jira ticket
 			let jira_ticket_groups = group_by_jira_tickets(search_results.as_slice());
+			let jira_ticket_total = if jira_ticket_groups.contains_key(&None) {
+				jira_ticket_groups.len() - 1
+			} else {
+				jira_ticket_groups.len()
+			};
 
 			// Sort the Jira tickets
 			let mut jira_ticket_groups_sorted = jira_ticket_groups.iter().collect::<Vec<_>>();
-			jira_ticket_groups_sorted.sort_unstable_by_key(|entry| sortable_jira_ticket(entry.0));
+			jira_ticket_groups_sorted
+				.sort_unstable_by_key(|entry| entry.0.map(sortable_jira_ticket));
 
 			// Display the results
-			println!("Jira tickets: ({} total)", jira_ticket_groups_sorted.len());
+			println!("Jira tickets: ({jira_ticket_total} total)");
 			display_jira_ticket_commit_list(
 				jira_ticket_groups_sorted.as_slice(),
 				show_commits,
@@ -252,21 +261,45 @@ fn main() -> Result<()> {
 				}
 			}
 
+			let jira_tickets_on_both_objects_total =
+				if jira_tickets_on_both_objects.contains_key(&None) {
+					jira_tickets_on_both_objects.len() - 1
+				} else {
+					jira_tickets_on_both_objects.len()
+				};
+
 			// Sort the sets
 			jira_tickets_only_on_object_a
-				.sort_unstable_by_key(|entry| sortable_jira_ticket(entry.0));
+				.sort_unstable_by_key(|entry| entry.0.map(sortable_jira_ticket));
 			jira_tickets_only_on_object_b
-				.sort_unstable_by_key(|entry| sortable_jira_ticket(entry.0));
+				.sort_unstable_by_key(|entry| entry.0.map(sortable_jira_ticket));
 			let mut jira_tickets_on_both_objects_sorted =
 				jira_tickets_on_both_objects.iter().collect::<Vec<_>>();
 			jira_tickets_on_both_objects_sorted
-				.sort_unstable_by_key(|entry| sortable_jira_ticket(entry.0));
+				.sort_unstable_by_key(|entry| entry.0.map(sortable_jira_ticket));
+
+			// We do this search here because a binary search on a sorted set is faster
+			let jira_tickets_only_on_object_a_total = if jira_tickets_only_on_object_a
+				.binary_search_by_key(&&None, |&(jira_ticket, _)| jira_ticket)
+				.is_ok()
+			{
+				jira_tickets_only_on_object_a.len() - 1
+			} else {
+				jira_tickets_only_on_object_a.len()
+			};
+			let jira_tickets_only_on_object_b_total = if jira_tickets_only_on_object_b
+				.binary_search_by_key(&&None, |&(jira_ticket, _)| jira_ticket)
+				.is_ok()
+			{
+				jira_tickets_only_on_object_b.len() - 1
+			} else {
+				jira_tickets_only_on_object_b.len()
+			};
 
 			// Display the results
 			println!();
 			println!(
-				"Jira tickets only on `{object_a}`: ({} total)",
-				jira_tickets_only_on_object_a.len()
+				"Jira tickets only on `{object_a}`: ({jira_tickets_only_on_object_a_total} total)"
 			);
 			display_jira_ticket_commit_list(
 				jira_tickets_only_on_object_a.as_slice(),
@@ -277,8 +310,7 @@ fn main() -> Result<()> {
 			println!();
 
 			println!(
-				"Jira tickets only on `{object_b}`: ({} total)",
-				jira_tickets_only_on_object_b.len()
+				"Jira tickets only on `{object_b}`: ({jira_tickets_only_on_object_b_total} total)"
 			);
 			display_jira_ticket_commit_list(
 				jira_tickets_only_on_object_b.as_slice(),
@@ -289,19 +321,24 @@ fn main() -> Result<()> {
 			println!();
 
 			println!(
-				"Jira tickets on both `{object_a}` and `{object_b}`: ({} total)",
-				jira_tickets_on_both_objects_sorted.len()
+				"Jira tickets on both `{object_a}` and `{object_b}`: \
+				 ({jira_tickets_on_both_objects_total} total)"
 			);
-			for (jira_ticket, (commits_object_a, commits_object_b)) in
+			for (jira_ticket_option, (commits_object_a, commits_object_b)) in
 				jira_tickets_on_both_objects_sorted
 			{
+				let jira_ticket = if let Some(ticket) = jira_ticket_option {
+					ticket
+				} else {
+					NO_JIRA_TICKET_STR
+				};
 				let commits_object_a = commits_object_a.expect(
 					"the Option types are just present for the population stage of the process",
 				);
 				let commits_object_b = commits_object_b.expect(
 					"the Option types are just present for the population stage of the process",
 				);
-				if show_commits {
+				if show_commits || jira_ticket_option.is_none() {
 					println!("- {jira_ticket}:");
 					println!("\t- On `{object_a}`:");
 					display_commit_reference_tree(commits_object_a.as_slice(), 2, hash_length);
@@ -381,19 +418,28 @@ fn flatten_string_sets_on_shell_words(string_sets: ValuesRef<String>) -> Result<
 /// Group a set of included commits by Jira ticket.
 fn group_by_jira_tickets<'a>(
 	included_commits: &'a [IncludedCommit<'a>],
-) -> HashMap<&'a str, Vec<IncludedCommit<'a>>> {
+) -> HashMap<Option<&'a str>, Vec<IncludedCommit<'a>>> {
 	let mut jira_ticket_groups = HashMap::new();
 
 	for included_commit in included_commits {
-		for jira_ticket in &included_commit.commit.jira_tickets {
-			// The `clone` calls here are a little ugly, but the `IncludedCommit` struct
-			// basically just holds references anyway, so cloning it is cheap
+		// The `clone` calls here are a little ugly, but the `IncludedCommit` struct
+		// basically just holds references anyway, so cloning it is cheap
+		if included_commit.commit.jira_tickets.is_empty() {
 			jira_ticket_groups
-				.entry(jira_ticket.as_str())
+				.entry(None)
 				.and_modify(|ticket_commits: &mut Vec<IncludedCommit>| {
 					ticket_commits.push(included_commit.clone());
 				})
 				.or_insert(vec![included_commit.clone()]);
+		} else {
+			for jira_ticket in &included_commit.commit.jira_tickets {
+				jira_ticket_groups
+					.entry(Some(jira_ticket.as_str()))
+					.and_modify(|ticket_commits: &mut Vec<IncludedCommit>| {
+						ticket_commits.push(included_commit.clone());
+					})
+					.or_insert(vec![included_commit.clone()]);
+			}
 		}
 	}
 
@@ -402,13 +448,19 @@ fn group_by_jira_tickets<'a>(
 
 /// Displays the simple list of Jira tickets, optionally with commit
 /// information.
+#[allow(clippy::ref_option_ref)]
 fn display_jira_ticket_commit_list(
-	jira_tickets: &[(&&str, &Vec<IncludedCommit>)],
+	jira_tickets: &[(&Option<&str>, &Vec<IncludedCommit>)],
 	show_commits: bool,
 	hash_length: usize,
 ) {
-	for (jira_ticket, commits) in jira_tickets {
-		if show_commits {
+	for (jira_ticket_option, commits) in jira_tickets {
+		let jira_ticket = if let Some(ticket) = jira_ticket_option {
+			ticket
+		} else {
+			NO_JIRA_TICKET_STR
+		};
+		if show_commits || jira_ticket_option.is_none() {
 			println!("- {jira_ticket}:");
 			display_commit_reference_tree(commits.as_slice(), 1, hash_length);
 		} else {

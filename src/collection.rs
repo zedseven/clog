@@ -138,10 +138,10 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 
 		// Search for Jira tickets
 		lazy_static! {
-			// Looks for a Jira ticket right at the start, or anywhere on the line if the line starts with "Pull request #..."
+			/// Looks for a Jira ticket right at the start, skipping "Pull request #..."
 			static ref JIRA_TICKET_START_REGEX: Regex =
 				Regex::new(r"^\s*(?:Pull request #\d+.*?)?([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap();
-			// Look for a Jira ticket anywhere on the line
+			/// Looks for a Jira ticket anywhere on the line
 			static ref JIRA_TICKET_REFERENCED_REGEX: Regex =
 				Regex::new(r"\b([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap();
 			/// Matches any Git commit hashes 7 characters or longer (to avoid matching small numbers that show up for other reasons)

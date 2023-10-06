@@ -90,7 +90,8 @@ pub fn build_cli() -> Command {
 		.value_parser(value_parser!(bool))
 		.help(
 			"Include Jira tickets that were mentioned anywhere in the commit message, instead of \
-			 just at the beginning.",
+			 just at the beginning. Please note that if using this feature, the same commit may \
+			 be counted in multiple Jira tickets.",
 		);
 	let show_commits_arg = Arg::new("show-commits")
 		.short('c')
