@@ -145,7 +145,8 @@ fn visit_commit<'a>(
 			}
 		} else {
 			eprintln!(
-				"[WARNING] Git revision {git_revision} referenced by commit {} could not be found.",
+				"[WARNING] Git revision `{git_revision}` referenced by commit `{}` could not be \
+				 found.",
 				commit.git_revision
 			);
 		}
@@ -168,7 +169,7 @@ fn visit_commit<'a>(
 			}
 		} else {
 			eprintln!(
-				"[WARNING] SVN revision `{svn_revision}` referenced by commit {} could not be \
+				"[WARNING] SVN revision `{svn_revision}` referenced by commit `{}` could not be \
 				 found.",
 				commit.git_revision
 			);
