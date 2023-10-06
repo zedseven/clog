@@ -46,7 +46,7 @@ mod util;
 mod writing;
 
 // Uses
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result};
 use clap::parser::ValuesRef;
@@ -168,6 +168,9 @@ fn main() -> Result<()> {
 			let affected_filepath_sets = matches.get_many::<String>("filepath");
 			let include_merge_commits =
 				*matches.get_one::<bool>("include-merges").unwrap_or(&false);
+			let include_cherry_picks = *matches
+				.get_one::<bool>("include-cherry-picks")
+				.unwrap_or(&false);
 			let include_mentioned_jira_tickets = *matches
 				.get_one::<bool>("include-mentioned")
 				.unwrap_or(&false);
@@ -210,7 +213,7 @@ fn main() -> Result<()> {
 			// The `A ^B` syntax basically searches for all commits accessible from
 			// object A, that aren't accessible from object B
 			let search_revspec_only_on_object_a = format!("\"{object_a}\" ^\"{object_b}\"");
-			let search_results_only_on_object_a = get_search_results(
+			let mut search_results_only_on_object_a = get_search_results(
 				&index,
 				repo_dir.as_str(),
 				search_revspec_only_on_object_a.as_str(),
@@ -225,7 +228,7 @@ fn main() -> Result<()> {
 			})?;
 
 			let search_revspec_only_on_object_b = format!("\"{object_b}\" ^\"{object_a}\"");
-			let search_results_only_on_object_b = get_search_results(
+			let mut search_results_only_on_object_b = get_search_results(
 				&index,
 				repo_dir.as_str(),
 				search_revspec_only_on_object_b.as_str(),
@@ -238,6 +241,64 @@ fn main() -> Result<()> {
 					 `{object_a}`"
 				)
 			})?;
+
+			// Filter out cherry-picks and SVN merges between the two objects
+			if !include_cherry_picks {
+				// Build hash sets from the results to make searching faster
+				let search_results_only_on_object_a_hash_set = search_results_only_on_object_a
+					.iter()
+					.cloned()
+					.collect::<HashSet<_>>();
+				let search_results_only_on_object_b_hash_set = search_results_only_on_object_b
+					.iter()
+					.cloned()
+					.collect::<HashSet<_>>();
+
+				// Sets for tracking what should be removed from the original sets
+				// (to avoid ad-hoc `remove()` calls)
+				let mut object_a_removal_set = HashSet::new();
+				let mut object_b_removal_set = HashSet::new();
+
+				// Search both sets, removing commits that reference the other
+				// This requires three iterations instead of two because we need to clean up
+				// object A with the results of object B's search
+				// Technically, this does not cover nested cherry-picks (a cherry-pick of a
+				// cherry-pick), but this should basically never happen, so it's not worth
+				// covering at the moment
+				search_results_only_on_object_a.retain(|commit| {
+					if commit.commit.is_likely_a_merge {
+						for included_commit in &commit.referenced_commits {
+							if search_results_only_on_object_b_hash_set.contains(included_commit) {
+								object_b_removal_set
+									.insert(included_commit.commit.git_revision.clone());
+								return false;
+							}
+						}
+					}
+					true
+				});
+				search_results_only_on_object_b.retain(|commit| {
+					if object_b_removal_set.contains(&commit.commit.git_revision) {
+						return false;
+					}
+					if commit.commit.is_likely_a_merge {
+						for included_commit in &commit.referenced_commits {
+							if search_results_only_on_object_a_hash_set.contains(included_commit) {
+								object_a_removal_set
+									.insert(included_commit.commit.git_revision.clone());
+								return false;
+							}
+						}
+					}
+					true
+				});
+				search_results_only_on_object_a.retain(|commit| {
+					if object_a_removal_set.contains(&commit.commit.git_revision) {
+						return false;
+					}
+					true
+				});
+			}
 
 			// Group the Jira tickets
 			let jira_tickets_on_object_a =

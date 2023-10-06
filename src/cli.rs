@@ -180,6 +180,24 @@ pub fn build_cli() -> Command {
 		)
 		.arg(filepath_arg)
 		.arg(include_merges_arg)
+		.arg(
+			Arg::new("include-cherry-picks")
+				.long("include-cherry-picks")
+				.num_args(0..=1)
+				.default_value("false")
+				.default_missing_value("true")
+				.action(ArgAction::Set)
+				.value_name("TRUE/FALSE")
+				.value_parser(value_parser!(bool))
+				.help(
+					"When this is false (default), the results will be filtered so that \
+					 cherry-picks of commits on the other object are removed. This cleans up the \
+					 results by removing changes that are on both objects, just under different \
+					 commits.\nUnfortunately, to do this, a heuristic is used that is not \
+					 perfect. As a result, this option provides the ability to disable the \
+					 functionality in case of issues.",
+				),
+		)
 		.arg(include_mentioned_arg)
 		.arg(show_commits_arg)
 		.arg(hash_length_arg.clone())

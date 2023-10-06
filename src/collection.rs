@@ -27,6 +27,7 @@ pub struct Commit {
 	pub svn_info:           Option<SvnInfo>,
 	pub jira_tickets:       Vec<String>,
 	pub referenced_commits: ReferencedCommits,
+	pub is_likely_a_merge:  bool,
 }
 
 #[derive(Debug)]
@@ -107,6 +108,7 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	let mut jira_tickets_set = HashSet::new();
 	let mut referenced_git_commits_set = LinkedHashSet::new();
 	let mut referenced_svn_commits_set = LinkedHashSet::new();
+	let mut mentions_merging = false;
 	let mut first_line = true;
 	for line in lines.iter().skip(1) {
 		// Search for the SVN metadata string
@@ -150,6 +152,9 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 			/// Finds (hopefully) all references to SVN revisions, but returns them as a group, not individually
 			static ref SVN_COMMIT_REFERENCE_REGEX: Regex =
 				Regex::new(r"(?i)\b(?:(?:commit|revision|rev)(?:s|\(s\))? |r)(\d+(?:-\d+)?(?:, ?\d+(?:-\d+)?)*)\b").unwrap();
+			/// Finds mentions of merging or cherry-picking
+			static ref MERGE_MENTION_REGEX: Regex =
+				Regex::new(r"(?i)(merg(?:e|ing)|cherry.?pick)").unwrap();
 		}
 		let jira_ticket_regex = if include_mentioned_jira_tickets {
 			&*JIRA_TICKET_REFERENCED_REGEX
@@ -191,8 +196,28 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 			}
 		}
 
+		if MERGE_MENTION_REGEX.is_match(line) {
+			mentions_merging = true;
+		}
+
 		first_line = false;
 	}
+
+	// This is a heuristic that determines whether it is likely that the commit is a
+	// merge of other commits. It is not perfect.
+	// Conditions:
+	// 	- Mentions merging
+	// 	- Only references one Git commit (cherry-picks are applied one commit at a
+	//    time, unless squashed, in which case we don't get a nice message anyway)
+	// 	- The Git commit reference is using the full hash (indicative of a
+	//    cherry-pick message)
+	// 	- References multiple SVN revisions
+	let is_likely_a_merge = mentions_merging
+		|| (referenced_git_commits_set.len() == 1
+			&& referenced_git_commits_set
+				.iter()
+				.all(|commit_reference| commit_reference.len() == SHA1_HASH_ASCII_LENGTH))
+		|| referenced_svn_commits_set.len() > 1;
 
 	Ok(Commit {
 		git_revision,
@@ -202,5 +227,6 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 			git_commits: Vec::from_iter(referenced_git_commits_set),
 			svn_commits: Vec::from_iter(referenced_svn_commits_set),
 		},
+		is_likely_a_merge,
 	})
 }
