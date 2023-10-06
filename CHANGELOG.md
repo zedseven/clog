@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2023-10-06
+
+### Bug Fixes
+
+- Do not show the commit hashes for commits without Jira tickets anymore. It adds too much noise. ([21826e60](https://github.com/zedseven/clog/commit/21826e60))
+- Change the text `<No Jira Ticket>` to `*No Jira Ticket*`, to be more Markdown-friendly. ([984bb5a9](https://github.com/zedseven/clog/commit/984bb5a9))
+
+### Continuous Integration
+
+- Add CI. ([705e2d4c](https://github.com/zedseven/clog/commit/705e2d4c))
+- Fix a mistake where the completed artifacts still use the wrong name. ([618fc22f](https://github.com/zedseven/clog/commit/618fc22f))
+
+### Features
+
+- Add a new subcommand, `compare`, that compares two branches to quickly tell what their differences are. ([7c858541](https://github.com/zedseven/clog/commit/7c858541))
+- Remove the unhelpful `flatten` option, and replace it with a new `show-commits` option *that is off by default*. Commit hashes will now not be shown unless requested, since they add a lot of noise for little benefit. ([d5ad8ace](https://github.com/zedseven/clog/commit/d5ad8ace))
+- Display commits without Jira tickets in the list. ([afb974cf](https://github.com/zedseven/clog/commit/afb974cf))
+- Add a new option, `ticket-prefix`, that optionally adds a user-defined prefix to the start of each ticket in the output. This is makes the output more directly-usable with external tools, like turning each ticket into a tag in Obsidian. ([3e93cc9f](https://github.com/zedseven/clog/commit/3e93cc9f))
+- Filter out cherry-picks and SVN merges that are on both objects. This behaviour can be disabled with the new option, `include-cherry-picks`. ([edcf92bc](https://github.com/zedseven/clog/commit/edcf92bc))
+- Rename the option `include-merges` to `include-merge-commits` to avoid ambiguity with the new option `include-cherry-picks`. Note that an alias still exists with the old name. ([610491bb](https://github.com/zedseven/clog/commit/610491bb))
+- Display a marker next to commits that are likely to be merges. ([0dd5fed0](https://github.com/zedseven/clog/commit/0dd5fed0))
+- Display commit revisions in backticks, to make the output more Markdown-friendly. ([ef6dcc02](https://github.com/zedseven/clog/commit/ef6dcc02))
+
+### Miscellaneous Tasks
+
+- Set up the repository for automated changelog & tag generation using git-cliff. ([c64eee71](https://github.com/zedseven/clog/commit/c64eee71))
+
 ## [0.4.0] - 2023-01-31
 
 ### Bug Fixes

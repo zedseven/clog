@@ -1,6 +1,6 @@
 [package]
 name = "clog"
-version = "0.4.0" # Managed by release.sh
+version = "0.5.0" # Managed by release.sh
 authors = ["Zacchary Dempsey-Plante <zacc@ztdp.ca>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
