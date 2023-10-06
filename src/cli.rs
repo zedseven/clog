@@ -37,7 +37,7 @@ pub fn build_cli() -> Command {
 		.default_value("8")
 		.action(ArgAction::Set)
 		.value_name("LENGTH")
-		.help("The number of characters to abbreviate Git revision hashes to.")
+		.help("The number of characters to abbreviate Git revision hashes to when displayed.")
 		.value_parser(value_parser!(u32).range(6..=SHA1_HASH_ASCII_LENGTH as i64));
 
 	let filepath_arg = Arg::new("filepath")
@@ -92,6 +92,22 @@ pub fn build_cli() -> Command {
 			"Include Jira tickets that were mentioned anywhere in the commit message, instead of \
 			 just at the beginning.",
 		);
+	let show_commits_arg = Arg::new("show-commits")
+		.short('c')
+		.long("show-commits")
+		.visible_alias("commits")
+		.visible_alias("commit-hashes")
+		.num_args(0..=1)
+		.default_value("false")
+		.default_missing_value("true")
+		.action(ArgAction::Set)
+		.value_name("TRUE/FALSE")
+		.value_parser(value_parser!(bool))
+		.help(
+			"Include commit hash information in the display. This option is disabled by default \
+			 because it makes the results too noisy and does not help unless checking the commit \
+			 information for technical reasons is required.",
+		);
 
 	let list_subcommand = Command::new("list")
 		.about("Generates lists of information based on a provided revspec.")
@@ -119,25 +135,7 @@ pub fn build_cli() -> Command {
 		.arg(filepath_arg.clone())
 		.arg(include_merges_arg.clone())
 		.arg(include_mentioned_arg.clone())
-		.arg(
-			Arg::new("flatten")
-				.short('f')
-				.long("flatten")
-				.visible_alias("flatten-results")
-				.num_args(0..=1)
-				.default_value("false")
-				.default_missing_value("true")
-				.action(ArgAction::Set)
-				.value_name("TRUE/FALSE")
-				.value_parser(value_parser!(bool))
-				.help(
-					"Flatten the results so there is no nesting of commits or Jira tickets. The \
-					 output will be 2 distinct lists of information.\nNote: The flattened lists \
-					 will include more Jira tickets, because the Jira tickets of the referenced \
-					 commits will also be included. (whereas, with the normal behaviour, \
-					 referenced commits' Jira tickets are ignored)",
-				),
-		)
+		.arg(show_commits_arg.clone())
 		.arg(hash_length_arg.clone());
 
 	let compare_subcommand = Command::new("compare")
@@ -168,6 +166,7 @@ pub fn build_cli() -> Command {
 		.arg(filepath_arg)
 		.arg(include_merges_arg)
 		.arg(include_mentioned_arg)
+		.arg(show_commits_arg)
 		.arg(hash_length_arg.clone());
 
 	let revmap_subcommand = Command::new("revmap")

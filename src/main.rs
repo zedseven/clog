@@ -46,7 +46,7 @@ mod util;
 mod writing;
 
 // Uses
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 use clap::parser::ValuesRef;
@@ -81,7 +81,7 @@ fn main() -> Result<()> {
 			let include_mentioned_jira_tickets = *matches
 				.get_one::<bool>("include-mentioned")
 				.unwrap_or(&false);
-			let flatten = *matches.get_one::<bool>("flatten").unwrap_or(&false);
+			let show_commits = *matches.get_one::<bool>("show-commits").unwrap_or(&false);
 			let hash_length = *matches
 				.get_one::<u32>("hash-length")
 				.expect("Clap provides a default value") as usize;
@@ -125,62 +125,21 @@ fn main() -> Result<()> {
 
 			// Display the results
 			println!();
-			if flatten {
-				// Flatten the results
-				let mut commit_set = HashSet::new();
-				let mut jira_ticket_set = HashSet::new();
 
-				for included_commit in &search_results {
-					flatten_search_results(&mut commit_set, &mut jira_ticket_set, included_commit);
-				}
+			// Group the commits by Jira ticket
+			let jira_ticket_groups = group_by_jira_tickets(search_results.as_slice());
 
-				// Sort the lists
-				let mut commit_list = Vec::from_iter(commit_set);
-				let mut jira_ticket_list = Vec::from_iter(jira_ticket_set);
+			// Sort the Jira tickets
+			let mut jira_ticket_groups_sorted = jira_ticket_groups.iter().collect::<Vec<_>>();
+			jira_ticket_groups_sorted.sort_unstable_by_key(|entry| sortable_jira_ticket(entry.0));
 
-				commit_list.sort_unstable_by_key(|commit| commit.visitation_num);
-				jira_ticket_list
-					.sort_unstable_by_key(|jira_ticket| sortable_jira_ticket(jira_ticket));
-
-				// Display the results
-				println!("Commits: ({} total)", commit_list.len());
-				for commit in commit_list {
-					println!("- {}", &commit.commit.git_revision[0..hash_length]);
-				}
-
-				println!();
-
-				if include_mentioned_jira_tickets {
-					println!(
-						"Jira tickets: ({} total, including referenced commits' tickets and \
-						 tickets mentioned anywhere in commit messages)",
-						jira_ticket_list.len()
-					);
-				} else {
-					println!(
-						"Jira tickets: ({} total, including referenced commits' tickets)",
-						jira_ticket_list.len()
-					);
-				}
-				for jira_ticket in jira_ticket_list {
-					println!("- {jira_ticket}");
-				}
-			} else {
-				// Group the commits by Jira ticket
-				let jira_ticket_groups = group_by_jira_tickets(search_results.as_slice());
-
-				// Sort the Jira tickets
-				let mut jira_ticket_groups_sorted = jira_ticket_groups.iter().collect::<Vec<_>>();
-				jira_ticket_groups_sorted
-					.sort_unstable_by_key(|entry| sortable_jira_ticket(entry.0));
-
-				// Display the results
-				println!("Jira tickets: ({} total)", jira_ticket_groups_sorted.len());
-				for (jira_ticket, commits) in jira_ticket_groups_sorted {
-					println!("- {jira_ticket}:");
-					display_commit_reference_tree(commits.as_slice(), 1, hash_length);
-				}
-			}
+			// Display the results
+			println!("Jira tickets: ({} total)", jira_ticket_groups_sorted.len());
+			display_jira_ticket_commit_list(
+				jira_ticket_groups_sorted.as_slice(),
+				show_commits,
+				hash_length,
+			);
 		}
 		Some(("compare", matches)) => {
 			// Collect the CLI arguments that were provided
@@ -199,6 +158,7 @@ fn main() -> Result<()> {
 			let include_mentioned_jira_tickets = *matches
 				.get_one::<bool>("include-mentioned")
 				.unwrap_or(&false);
+			let show_commits = *matches.get_one::<bool>("show-commits").unwrap_or(&false);
 			let hash_length = *matches
 				.get_one::<u32>("hash-length")
 				.expect("Clap provides a default value") as usize;
@@ -308,10 +268,11 @@ fn main() -> Result<()> {
 				"Jira tickets only on `{object_a}`: ({} total)",
 				jira_tickets_only_on_object_a.len()
 			);
-			for (jira_ticket, commits) in jira_tickets_only_on_object_a {
-				println!("- {jira_ticket}:");
-				display_commit_reference_tree(commits.as_slice(), 1, hash_length);
-			}
+			display_jira_ticket_commit_list(
+				jira_tickets_only_on_object_a.as_slice(),
+				show_commits,
+				hash_length,
+			);
 
 			println!();
 
@@ -319,10 +280,11 @@ fn main() -> Result<()> {
 				"Jira tickets only on `{object_b}`: ({} total)",
 				jira_tickets_only_on_object_b.len()
 			);
-			for (jira_ticket, commits) in jira_tickets_only_on_object_b {
-				println!("- {jira_ticket}:");
-				display_commit_reference_tree(commits.as_slice(), 1, hash_length);
-			}
+			display_jira_ticket_commit_list(
+				jira_tickets_only_on_object_b.as_slice(),
+				show_commits,
+				hash_length,
+			);
 
 			println!();
 
@@ -339,11 +301,19 @@ fn main() -> Result<()> {
 				let commits_object_b = commits_object_b.expect(
 					"the Option types are just present for the population stage of the process",
 				);
-				println!("- {jira_ticket}:");
-				println!("\t- On `{object_a}`:");
-				display_commit_reference_tree(commits_object_a.as_slice(), 2, hash_length);
-				println!("\t- On `{object_b}`:");
-				display_commit_reference_tree(commits_object_b.as_slice(), 2, hash_length);
+				if show_commits {
+					println!("- {jira_ticket}:");
+					println!("\t- On `{object_a}`:");
+					display_commit_reference_tree(commits_object_a.as_slice(), 2, hash_length);
+					println!("\t- On `{object_b}`:");
+					display_commit_reference_tree(commits_object_b.as_slice(), 2, hash_length);
+				} else {
+					println!(
+						"- {jira_ticket} ({} : {})",
+						commits_object_a.len(),
+						commits_object_b.len()
+					);
+				}
 			}
 		}
 		Some(("revmap", matches)) => {
@@ -430,6 +400,24 @@ fn group_by_jira_tickets<'a>(
 	jira_ticket_groups
 }
 
+/// Displays the simple list of Jira tickets, optionally with commit
+/// information.
+fn display_jira_ticket_commit_list(
+	jira_tickets: &[(&&str, &Vec<IncludedCommit>)],
+	show_commits: bool,
+	hash_length: usize,
+) {
+	for (jira_ticket, commits) in jira_tickets {
+		if show_commits {
+			println!("- {jira_ticket}:");
+			display_commit_reference_tree(commits.as_slice(), 1, hash_length);
+		} else {
+			println!("- {jira_ticket} ({})", commits.len());
+		}
+	}
+}
+
+/// Displays the commit reference tree for a set of commits.
 fn display_commit_reference_tree(
 	included_commits: &[IncludedCommit],
 	indentation: u32,
@@ -450,28 +438,5 @@ fn display_commit_reference_tree(
 			indentation + 1,
 			hash_length,
 		);
-	}
-}
-
-fn flatten_search_results<'a>(
-	commit_list: &mut HashSet<&'a IncludedCommit<'a>>,
-	jira_ticket_list: &mut HashSet<&'a str>,
-	included_commit: &'a IncludedCommit<'a>,
-) {
-	// Add the commit to the list
-	commit_list.insert(included_commit);
-
-	// Collect the Jira tickets
-	jira_ticket_list.extend(
-		included_commit
-			.commit
-			.jira_tickets
-			.iter()
-			.map(String::as_str),
-	);
-
-	// Recurse over the referenced commits
-	for referenced_commit in &included_commit.referenced_commits {
-		flatten_search_results(commit_list, jira_ticket_list, referenced_commit);
 	}
 }
