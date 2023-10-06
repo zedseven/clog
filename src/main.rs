@@ -62,7 +62,7 @@ use crate::{
 };
 
 // Constants
-const NO_JIRA_TICKET_STR: &str = "<No Jira Ticket>";
+const NO_JIRA_TICKET_STR: &str = "*No Jira Ticket*";
 
 // Entry Point
 fn main() -> Result<()> {
