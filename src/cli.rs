@@ -40,6 +40,59 @@ pub fn build_cli() -> Command {
 		.help("The number of characters to abbreviate Git revision hashes to.")
 		.value_parser(value_parser!(u32).range(6..=SHA1_HASH_ASCII_LENGTH as i64));
 
+	let filepath_arg = Arg::new("filepath")
+		.short('p')
+		.long("filepath")
+		.visible_short_alias('p')
+		.visible_alias("file")
+		.visible_alias("dir")
+		.visible_alias("directory")
+		.visible_alias("path")
+		.visible_alias("affected")
+		.num_args(1)
+		.action(ArgAction::Append)
+		.value_name("RELATIVE_PATH")
+		.help(
+			"Filter the results to only commits that affected the specified \
+			 filepaths/directories.\nThe paths should be relative to the repository root. \
+			 Multiple paths can be provided, separated by spaces, or this argument can be \
+			 provided multiple times.",
+		)
+		.value_parser(NonEmptyStringValueParser::new());
+	let include_merges_arg = Arg::new("include-merges")
+		.short('m')
+		.long("include-merges")
+		.visible_alias("merges")
+		.visible_alias("merge-commits")
+		.visible_alias("include-merge-commits")
+		.num_args(0..=1)
+		.default_value("false")
+		.default_missing_value("true")
+		.action(ArgAction::Set)
+		.value_name("TRUE/FALSE")
+		.value_parser(value_parser!(bool))
+		.help(
+			"Include merge commits in the results.\nThis is off by default because they don't add \
+			 much to the resulting data, and tend to bloat the results.",
+		);
+	let include_mentioned_arg = Arg::new("include-mentioned")
+		.long("include-mentioned")
+		.visible_alias("mentioned")
+		.visible_alias("mentioned-tickets")
+		// Not a fan of using "Jira" as a synonym for "ticket", but it makes sense as an
+		// alias
+		.visible_alias("mentioned-jiras")
+		.num_args(0..=1)
+		.default_value("false")
+		.default_missing_value("true")
+		.action(ArgAction::Set)
+		.value_name("TRUE/FALSE")
+		.value_parser(value_parser!(bool))
+		.help(
+			"Include Jira tickets that were mentioned anywhere in the commit message, instead of \
+			 just at the beginning.",
+		);
+
 	let list_subcommand = Command::new("list")
 		.about("Generates lists of information based on a provided revspec.")
 		.arg_required_else_help(true)
@@ -63,64 +116,9 @@ pub fn build_cli() -> Command {
 				))
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
-		.arg(
-			Arg::new("filepath")
-				.short('p')
-				.long("filepath")
-				.visible_short_alias('p')
-				.visible_alias("file")
-				.visible_alias("dir")
-				.visible_alias("directory")
-				.visible_alias("path")
-				.visible_alias("affected")
-				.num_args(1)
-				.action(ArgAction::Append)
-				.value_name("RELATIVE_PATH")
-				.help(
-					"Filter the results to only commits that affected the specified \
-					 filepaths/directories.\nThe paths should be relative to the repository root. \
-					 Multiple paths can be provided, separated by spaces, or this argument can be \
-					 provided multiple times.",
-				)
-				.value_parser(NonEmptyStringValueParser::new()),
-		)
-		.arg(
-			Arg::new("include-merges")
-				.short('m')
-				.long("include-merges")
-				.visible_alias("merges")
-				.visible_alias("merge-commits")
-				.visible_alias("include-merge-commits")
-				.num_args(0..=1)
-				.default_value("false")
-				.default_missing_value("true")
-				.action(ArgAction::Set)
-				.value_name("TRUE/FALSE")
-				.value_parser(value_parser!(bool))
-				.help(
-					"Include merge commits in the results.\nThis is off by default because they \
-					 don't add much to the resulting data, and tend to bloat the results.",
-				),
-		)
-		.arg(
-			Arg::new("include-mentioned")
-				.long("include-mentioned")
-				.visible_alias("mentioned")
-				.visible_alias("mentioned-tickets")
-				// Not a fan of using "Jira" as a synonym for "ticket", but it makes sense as an
-				// alias
-				.visible_alias("mentioned-jiras")
-				.num_args(0..=1)
-				.default_value("false")
-				.default_missing_value("true")
-				.action(ArgAction::Set)
-				.value_name("TRUE/FALSE")
-				.value_parser(value_parser!(bool))
-				.help(
-					"Include Jira tickets that were mentioned anywhere in the commit message, \
-					 instead of just at the beginning.",
-				),
-		)
+		.arg(filepath_arg.clone())
+		.arg(include_merges_arg.clone())
+		.arg(include_mentioned_arg.clone())
 		.arg(
 			Arg::new("flatten")
 				.short('f')
@@ -140,6 +138,36 @@ pub fn build_cli() -> Command {
 					 referenced commits' Jira tickets are ignored)",
 				),
 		)
+		.arg(hash_length_arg.clone());
+
+	let compare_subcommand = Command::new("compare")
+		.about(
+			"Compares two objects and generates a comprehensive list of differences (as best as \
+			 possible).",
+		)
+		.arg_required_else_help(true)
+		.arg(repo_arg.clone())
+		.arg(
+			Arg::new("object-a")
+				.num_args(1)
+				.action(ArgAction::Set)
+				.value_name("OBJECT_A")
+				.required(true)
+				.help("The first reference to compare.")
+				.value_parser(NonEmptyStringValueParser::new()),
+		)
+		.arg(
+			Arg::new("object-b")
+				.num_args(1)
+				.action(ArgAction::Set)
+				.value_name("OBJECT_B")
+				.required(true)
+				.help("The second reference to compare.")
+				.value_parser(NonEmptyStringValueParser::new()),
+		)
+		.arg(filepath_arg)
+		.arg(include_merges_arg)
+		.arg(include_mentioned_arg)
 		.arg(hash_length_arg.clone());
 
 	let revmap_subcommand = Command::new("revmap")
@@ -189,5 +217,6 @@ pub fn build_cli() -> Command {
 		.arg_required_else_help(true)
 		.help_expected(true)
 		.subcommand(list_subcommand)
+		.subcommand(compare_subcommand)
 		.subcommand(revmap_subcommand)
 }
