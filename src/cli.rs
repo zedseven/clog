@@ -109,6 +109,19 @@ pub fn build_cli() -> Command {
 			 because it makes the results too noisy and does not help unless checking the commit \
 			 information for technical reasons is required.",
 		);
+	let ticket_prefix_arg = Arg::new("ticket-prefix")
+		.long("ticket-prefix")
+		.visible_alias("jira-ticket-prefix")
+		.visible_alias("jira-prefix")
+		.num_args(1)
+		.default_value("")
+		.action(ArgAction::Set)
+		.value_name("PREFIX")
+		.help(
+			"The prefix to apply to Jira tickets in the output. This is a convenience feature to \
+			 make the output more directly-usable with external tools, like turning each ticket \
+			 into a tag in Obsidian.",
+		);
 
 	let list_subcommand = Command::new("list")
 		.about("Generates lists of information based on a provided revspec.")
@@ -137,7 +150,8 @@ pub fn build_cli() -> Command {
 		.arg(include_merges_arg.clone())
 		.arg(include_mentioned_arg.clone())
 		.arg(show_commits_arg.clone())
-		.arg(hash_length_arg.clone());
+		.arg(hash_length_arg.clone())
+		.arg(ticket_prefix_arg.clone());
 
 	let compare_subcommand = Command::new("compare")
 		.about(
@@ -168,7 +182,8 @@ pub fn build_cli() -> Command {
 		.arg(include_merges_arg)
 		.arg(include_mentioned_arg)
 		.arg(show_commits_arg)
-		.arg(hash_length_arg.clone());
+		.arg(hash_length_arg.clone())
+		.arg(ticket_prefix_arg.clone());
 
 	let revmap_subcommand = Command::new("revmap")
 		.visible_alias("build-revmap") // Since `clog` started as `build-revmap`

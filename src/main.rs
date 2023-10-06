@@ -88,6 +88,9 @@ fn main() -> Result<()> {
 			let hash_length = *matches
 				.get_one::<u32>("hash-length")
 				.expect("Clap provides a default value") as usize;
+			let ticket_prefix = matches
+				.get_one::<String>("ticket-prefix")
+				.expect("Clap provides a default value");
 
 			// Print the revspec used
 			println!("Using the following revspec: `{revspec}`");
@@ -148,6 +151,7 @@ fn main() -> Result<()> {
 				jira_ticket_groups_sorted.as_slice(),
 				show_commits,
 				hash_length,
+				ticket_prefix,
 			);
 		}
 		Some(("compare", matches)) => {
@@ -171,6 +175,9 @@ fn main() -> Result<()> {
 			let hash_length = *matches
 				.get_one::<u32>("hash-length")
 				.expect("Clap provides a default value") as usize;
+			let ticket_prefix = matches
+				.get_one::<String>("ticket-prefix")
+				.expect("Clap provides a default value");
 
 			// Print the objects being compared
 			println!("Comparing the following two references: `{object_a}` against `{object_b}`");
@@ -305,6 +312,7 @@ fn main() -> Result<()> {
 				jira_tickets_only_on_object_a.as_slice(),
 				show_commits,
 				hash_length,
+				ticket_prefix,
 			);
 
 			println!();
@@ -316,6 +324,7 @@ fn main() -> Result<()> {
 				jira_tickets_only_on_object_b.as_slice(),
 				show_commits,
 				hash_length,
+				ticket_prefix,
 			);
 
 			println!();
@@ -324,34 +333,14 @@ fn main() -> Result<()> {
 				"Jira tickets on both `{object_a}` and `{object_b}`: \
 				 ({jira_tickets_on_both_objects_total} total)"
 			);
-			for (jira_ticket_option, (commits_object_a, commits_object_b)) in
-				jira_tickets_on_both_objects_sorted
-			{
-				let jira_ticket = if let Some(ticket) = jira_ticket_option {
-					ticket
-				} else {
-					NO_JIRA_TICKET_STR
-				};
-				let commits_object_a = commits_object_a.expect(
-					"the Option types are just present for the population stage of the process",
-				);
-				let commits_object_b = commits_object_b.expect(
-					"the Option types are just present for the population stage of the process",
-				);
-				if show_commits {
-					println!("- {jira_ticket}:");
-					println!("\t- On `{object_a}`:");
-					display_commit_reference_tree(commits_object_a.as_slice(), 2, hash_length);
-					println!("\t- On `{object_b}`:");
-					display_commit_reference_tree(commits_object_b.as_slice(), 2, hash_length);
-				} else {
-					println!(
-						"- {jira_ticket} ({} : {})",
-						commits_object_a.len(),
-						commits_object_b.len()
-					);
-				}
-			}
+			display_jira_ticket_commit_list_intersection(
+				jira_tickets_on_both_objects_sorted.as_slice(),
+				object_a.as_str(),
+				object_b.as_str(),
+				show_commits,
+				hash_length,
+				ticket_prefix,
+			);
 		}
 		Some(("revmap", matches)) => {
 			// Collect the CLI arguments that were provided
@@ -453,18 +442,64 @@ fn display_jira_ticket_commit_list(
 	jira_tickets: &[(&Option<&str>, &Vec<IncludedCommit>)],
 	show_commits: bool,
 	hash_length: usize,
+	ticket_prefix: &str,
 ) {
 	for (jira_ticket_option, commits) in jira_tickets {
 		let jira_ticket = if let Some(ticket) = jira_ticket_option {
-			ticket
+			format!("{ticket_prefix}{ticket}")
 		} else {
-			NO_JIRA_TICKET_STR
+			NO_JIRA_TICKET_STR.to_owned()
 		};
 		if show_commits {
 			println!("- {jira_ticket}:");
 			display_commit_reference_tree(commits.as_slice(), 1, hash_length);
 		} else {
 			println!("- {jira_ticket} ({})", commits.len());
+		}
+	}
+}
+
+/// Displays the list of Jira tickets for the intersection between two objects'
+/// lists.
+///
+/// The counterpart of `display_jira_ticket_commit_list`.
+///
+/// The reason this is in its own function despite only being used once, is so
+/// that it can be updated in tandem with its counterpart.
+#[allow(clippy::ref_option_ref, clippy::type_complexity)]
+fn display_jira_ticket_commit_list_intersection(
+	jira_ticket_intersection: &[(
+		&&Option<&str>,
+		&(Option<&Vec<IncludedCommit>>, Option<&Vec<IncludedCommit>>),
+	)],
+	object_a: &str,
+	object_b: &str,
+	show_commits: bool,
+	hash_length: usize,
+	ticket_prefix: &str,
+) {
+	for (jira_ticket_option, (commits_object_a, commits_object_b)) in jira_ticket_intersection {
+		let jira_ticket = if let Some(ticket) = jira_ticket_option {
+			format!("{ticket_prefix}{ticket}")
+		} else {
+			NO_JIRA_TICKET_STR.to_owned()
+		};
+		let commits_object_a = commits_object_a
+			.expect("the Option types are just present for the population stage of the process");
+		let commits_object_b = commits_object_b
+			.expect("the Option types are just present for the population stage of the process");
+		if show_commits {
+			println!("- {jira_ticket}:");
+			println!("\t- On `{object_a}`:");
+			display_commit_reference_tree(commits_object_a.as_slice(), 2, hash_length);
+			println!("\t- On `{object_b}`:");
+			display_commit_reference_tree(commits_object_b.as_slice(), 2, hash_length);
+		} else {
+			println!(
+				"- {jira_ticket} ({} : {})",
+				commits_object_a.len(),
+				commits_object_b.len()
+			);
 		}
 	}
 }
