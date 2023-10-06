@@ -63,6 +63,7 @@ use crate::{
 
 // Constants
 const NO_JIRA_TICKET_STR: &str = "*No Jira Ticket*";
+const MERGE_COMMIT_MARKER_STR: &str = " (M)";
 
 // Entry Point
 fn main() -> Result<()> {
@@ -580,7 +581,15 @@ fn display_commit_reference_tree(
 		}
 
 		// Print the commit revision
-		println!("- {}", &included_commit.commit.git_revision[0..hash_length]);
+		println!(
+			"- {}{}",
+			&included_commit.commit.git_revision[0..hash_length],
+			if included_commit.commit.is_likely_a_merge {
+				MERGE_COMMIT_MARKER_STR
+			} else {
+				""
+			}
+		);
 
 		// Recurse over the referenced commits
 		display_commit_reference_tree(

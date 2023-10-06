@@ -24,6 +24,7 @@ const LOG_COMMIT_DELIMITER: &str = "CLOG-COMMIT-DELIMITER\n";
 #[derive(Debug)]
 pub struct Commit {
 	pub git_revision:       String,
+	pub parent_revisions:   Vec<String>,
 	pub svn_info:           Option<SvnInfo>,
 	pub jira_tickets:       Vec<String>,
 	pub referenced_commits: ReferencedCommits,
@@ -71,7 +72,9 @@ where
 		.arg("log")
 		.arg("--all")
 		.arg("--full-history")
-		.arg(format!("--pretty=format:{LOG_COMMIT_DELIMITER}%H\n%s\n%b"))
+		.arg(format!(
+			"--pretty=format:{LOG_COMMIT_DELIMITER}%H\n%P\n%s\n%b"
+		))
 		.current_dir(repo_dir);
 
 	// Run the command
@@ -100,8 +103,12 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	if git_revision_str.len() != SHA1_HASH_ASCII_LENGTH {
 		return Err(anyhow!("SHA-1 hash is of invalid length"));
 	}
-
 	let git_revision = git_revision_str.to_owned();
+
+	let parent_revisions = lines[1]
+		.split(' ')
+		.map(ToOwned::to_owned)
+		.collect::<Vec<_>>();
 
 	// Search the commit message content for information
 	let mut svn_info = None;
@@ -110,7 +117,7 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	let mut referenced_svn_commits_set = LinkedHashSet::new();
 	let mut mentions_merging = false;
 	let mut first_line = true;
-	for line in lines.iter().skip(1) {
+	for line in lines.iter().skip(2) {
 		// Search for the SVN metadata string
 		if svn_info.is_none() && line.starts_with(GIT_SVN_ID_STR) {
 			// The SVN metadata looks like this (without quotes):
@@ -206,13 +213,15 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	// This is a heuristic that determines whether it is likely that the commit is a
 	// merge of other commits. It is not perfect.
 	// Conditions:
+	// 	- Is a merge commit (multiple parent commits)
 	// 	- Mentions merging
 	// 	- Only references one Git commit (cherry-picks are applied one commit at a
 	//    time, unless squashed, in which case we don't get a nice message anyway)
 	// 	- The Git commit reference is using the full hash (indicative of a
 	//    cherry-pick message)
 	// 	- References multiple SVN revisions
-	let is_likely_a_merge = mentions_merging
+	let is_likely_a_merge = parent_revisions.len() > 1
+		|| mentions_merging
 		|| (referenced_git_commits_set.len() == 1
 			&& referenced_git_commits_set
 				.iter()
@@ -221,6 +230,7 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 
 	Ok(Commit {
 		git_revision,
+		parent_revisions,
 		svn_info,
 		jira_tickets: Vec::from_iter(jira_tickets_set),
 		referenced_commits: ReferencedCommits {
