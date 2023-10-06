@@ -59,12 +59,11 @@ pub fn build_cli() -> Command {
 			 provided multiple times.",
 		)
 		.value_parser(NonEmptyStringValueParser::new());
-	let include_merges_arg = Arg::new("include-merges")
+	let include_merge_commits_arg = Arg::new("include-merge-commits")
 		.short('m')
-		.long("include-merges")
-		.visible_alias("merges")
+		.long("include-merge-commits")
+		.visible_alias("include-merges")
 		.visible_alias("merge-commits")
-		.visible_alias("include-merge-commits")
 		.num_args(0..=1)
 		.default_value("false")
 		.default_missing_value("true")
@@ -147,7 +146,7 @@ pub fn build_cli() -> Command {
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
 		.arg(filepath_arg.clone())
-		.arg(include_merges_arg.clone())
+		.arg(include_merge_commits_arg.clone())
 		.arg(include_mentioned_arg.clone())
 		.arg(show_commits_arg.clone())
 		.arg(hash_length_arg.clone())
@@ -179,10 +178,11 @@ pub fn build_cli() -> Command {
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
 		.arg(filepath_arg)
-		.arg(include_merges_arg)
+		.arg(include_merge_commits_arg)
 		.arg(
 			Arg::new("include-cherry-picks")
 				.long("include-cherry-picks")
+				.visible_alias("cherry-picks")
 				.num_args(0..=1)
 				.default_value("false")
 				.default_missing_value("true")
