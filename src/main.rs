@@ -62,7 +62,7 @@ use crate::{
 };
 
 // Constants
-const NO_JIRA_TICKET_STR: &str = "<No Jira ticket>";
+const NO_JIRA_TICKET_STR: &str = "<No Jira Ticket>";
 
 // Entry Point
 fn main() -> Result<()> {
@@ -338,7 +338,7 @@ fn main() -> Result<()> {
 				let commits_object_b = commits_object_b.expect(
 					"the Option types are just present for the population stage of the process",
 				);
-				if show_commits || jira_ticket_option.is_none() {
+				if show_commits {
 					println!("- {jira_ticket}:");
 					println!("\t- On `{object_a}`:");
 					display_commit_reference_tree(commits_object_a.as_slice(), 2, hash_length);
@@ -460,7 +460,7 @@ fn display_jira_ticket_commit_list(
 		} else {
 			NO_JIRA_TICKET_STR
 		};
-		if show_commits || jira_ticket_option.is_none() {
+		if show_commits {
 			println!("- {jira_ticket}:");
 			display_commit_reference_tree(commits.as_slice(), 1, hash_length);
 		} else {
