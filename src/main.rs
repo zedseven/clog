@@ -38,15 +38,21 @@
 
 // Modules
 mod cli;
+mod clipboard;
 mod collection;
 mod constants;
 mod index;
+mod multi_writer;
 mod search;
 mod util;
 mod writing;
 
 // Uses
-use std::collections::{HashMap, HashSet};
+use std::{
+	collections::{HashMap, HashSet},
+	io::{stdout, Write},
+	str::from_utf8,
+};
 
 use anyhow::{Context, Result};
 use clap::parser::ValuesRef;
@@ -54,8 +60,10 @@ use shell_words::split as split_shell_words;
 
 use crate::{
 	cli::build_cli,
+	clipboard::copy_str_to_clipboard,
 	collection::get_complete_commit_list,
 	index::Index,
+	multi_writer::MultiWriter,
 	search::{get_search_results, IncludedCommit},
 	util::sortable_jira_ticket,
 	writing::{write_to_bin, write_to_markdown},
@@ -69,6 +77,11 @@ const MERGE_COMMIT_MARKER_STR: &str = " (M)";
 fn main() -> Result<()> {
 	let cli_definition = build_cli();
 	let subcommand_matches = cli_definition.get_matches();
+
+	// Set up the multi-writer
+	let mut stdout_writer = stdout();
+	let mut string_output_raw = Vec::new();
+	let mut multi_writer = MultiWriter::new(vec![&mut stdout_writer, &mut string_output_raw]);
 
 	match subcommand_matches.subcommand() {
 		Some(("list", matches)) => {
@@ -93,9 +106,15 @@ fn main() -> Result<()> {
 			let ticket_prefix = matches
 				.get_one::<String>("ticket-prefix")
 				.expect("Clap provides a default value");
+			let copy_to_clipboard = *matches
+				.get_one::<bool>("copy-to-clipboard")
+				.unwrap_or(&false);
 
 			// Print the revspec used
-			println!("Using the following revspec: `{revspec}`");
+			writeln!(
+				&mut multi_writer,
+				"Using the following revspec: `{revspec}`"
+			)?;
 
 			// Since the filepaths can be provided all in one argument, or separately with
 			// multiple arguments, they need to be collected into a single list
@@ -107,9 +126,12 @@ fn main() -> Result<()> {
 
 			// Display the filepaths being considered
 			if !affected_filepaths.is_empty() {
-				println!("Only considering commits that affected the following filepaths:");
+				writeln!(
+					&mut multi_writer,
+					"Only considering commits that affected the following filepaths:"
+				)?;
 				for affected_filepath in &affected_filepaths {
-					println!("- `{affected_filepath}`");
+					writeln!(&mut multi_writer, "- `{affected_filepath}`")?;
 				}
 			}
 
@@ -132,7 +154,7 @@ fn main() -> Result<()> {
 			.with_context(|| "unable to perform the search")?;
 
 			// Display the results
-			println!();
+			writeln!(&mut multi_writer)?;
 
 			// Group the commits by Jira ticket
 			let jira_ticket_groups = group_by_jira_tickets(search_results.as_slice());
@@ -148,13 +170,25 @@ fn main() -> Result<()> {
 				.sort_unstable_by_key(|entry| entry.0.map(sortable_jira_ticket));
 
 			// Display the results
-			println!("Jira tickets: ({jira_ticket_total} total)");
+			writeln!(
+				&mut multi_writer,
+				"Jira tickets: ({jira_ticket_total} total)"
+			)?;
 			display_jira_ticket_commit_list(
+				&mut multi_writer,
 				jira_ticket_groups_sorted.as_slice(),
 				show_commits,
 				hash_length,
 				ticket_prefix,
-			);
+			)?;
+
+			// Copy the output to the clipboard if specified
+			if copy_to_clipboard {
+				copy_str_to_clipboard(from_utf8(string_output_raw.as_slice()).expect(
+					"only string values were written to the buffer, so it's guaranteed to be \
+					 valid UTF-8",
+				))?;
+			}
 		}
 		Some(("compare", matches)) => {
 			// Collect the CLI arguments that were provided
@@ -184,9 +218,15 @@ fn main() -> Result<()> {
 			let ticket_prefix = matches
 				.get_one::<String>("ticket-prefix")
 				.expect("Clap provides a default value");
+			let copy_to_clipboard = *matches
+				.get_one::<bool>("copy-to-clipboard")
+				.unwrap_or(&false);
 
 			// Print the objects being compared
-			println!("Comparing the following two references: `{object_a}` against `{object_b}`");
+			writeln!(
+				&mut multi_writer,
+				"Comparing the following two references: `{object_a}` against `{object_b}`"
+			)?;
 
 			// Since the filepaths can be provided all in one argument, or separately with
 			// multiple arguments, they need to be collected into a single list
@@ -198,9 +238,12 @@ fn main() -> Result<()> {
 
 			// Display the filepaths being considered
 			if !affected_filepaths.is_empty() {
-				println!("Only considering commits that affected the following filepaths:");
+				writeln!(
+					&mut multi_writer,
+					"Only considering commits that affected the following filepaths:"
+				)?;
 				for affected_filepath in &affected_filepaths {
-					println!("- `{affected_filepath}`");
+					writeln!(&mut multi_writer, "- `{affected_filepath}`")?;
 				}
 			}
 
@@ -368,43 +411,57 @@ fn main() -> Result<()> {
 			};
 
 			// Display the results
-			println!();
-			println!(
+			writeln!(&mut multi_writer)?;
+			writeln!(
+				&mut multi_writer,
 				"Jira tickets only on `{object_a}`: ({jira_tickets_only_on_object_a_total} total)"
-			);
+			)?;
 			display_jira_ticket_commit_list(
+				&mut multi_writer,
 				jira_tickets_only_on_object_a.as_slice(),
 				show_commits,
 				hash_length,
 				ticket_prefix,
-			);
+			)?;
 
-			println!();
+			writeln!(&mut multi_writer)?;
 
-			println!(
+			writeln!(
+				&mut multi_writer,
 				"Jira tickets only on `{object_b}`: ({jira_tickets_only_on_object_b_total} total)"
-			);
+			)?;
 			display_jira_ticket_commit_list(
+				&mut multi_writer,
 				jira_tickets_only_on_object_b.as_slice(),
 				show_commits,
 				hash_length,
 				ticket_prefix,
-			);
+			)?;
 
-			println!();
+			writeln!(&mut multi_writer)?;
 
-			println!(
+			writeln!(
+				&mut multi_writer,
 				"Jira tickets on both `{object_a}` and `{object_b}`: \
 				 ({jira_tickets_on_both_objects_total} total)"
-			);
+			)?;
 			display_jira_ticket_commit_list_intersection(
+				&mut multi_writer,
 				jira_tickets_on_both_objects_sorted.as_slice(),
 				object_a.as_str(),
 				object_b.as_str(),
 				show_commits,
 				hash_length,
 				ticket_prefix,
-			);
+			)?;
+
+			// Copy the output to the clipboard if specified
+			if copy_to_clipboard {
+				copy_str_to_clipboard(from_utf8(string_output_raw.as_slice()).expect(
+					"only string values were written to the buffer, so it's guaranteed to be \
+					 valid UTF-8",
+				))?;
+			}
 		}
 		Some(("revmap", matches)) => {
 			// Collect the CLI arguments that were provided
@@ -503,11 +560,12 @@ fn group_by_jira_tickets<'a>(
 /// information.
 #[allow(clippy::ref_option_ref)]
 fn display_jira_ticket_commit_list(
+	multi_writer: &mut MultiWriter,
 	jira_tickets: &[(&Option<&str>, &Vec<IncludedCommit>)],
 	show_commits: bool,
 	hash_length: usize,
 	ticket_prefix: &str,
-) {
+) -> Result<()> {
 	for (jira_ticket_option, commits) in jira_tickets {
 		let jira_ticket = if let Some(ticket) = jira_ticket_option {
 			format!("{ticket_prefix}{ticket}")
@@ -515,12 +573,14 @@ fn display_jira_ticket_commit_list(
 			NO_JIRA_TICKET_STR.to_owned()
 		};
 		if show_commits {
-			println!("- {jira_ticket}:");
-			display_commit_reference_tree(commits.as_slice(), 1, hash_length);
+			writeln!(multi_writer, "- {jira_ticket}:")?;
+			display_commit_reference_tree(multi_writer, commits.as_slice(), 1, hash_length)?;
 		} else {
-			println!("- {jira_ticket} ({})", commits.len());
+			writeln!(multi_writer, "- {jira_ticket} ({})", commits.len())?;
 		}
 	}
+
+	Ok(())
 }
 
 /// Displays the list of Jira tickets for the intersection between two objects'
@@ -532,6 +592,7 @@ fn display_jira_ticket_commit_list(
 /// that it can be updated in tandem with its counterpart.
 #[allow(clippy::ref_option_ref, clippy::type_complexity)]
 fn display_jira_ticket_commit_list_intersection(
+	multi_writer: &mut MultiWriter,
 	jira_ticket_intersection: &[(
 		&&Option<&str>,
 		&(Option<&Vec<IncludedCommit>>, Option<&Vec<IncludedCommit>>),
@@ -541,7 +602,7 @@ fn display_jira_ticket_commit_list_intersection(
 	show_commits: bool,
 	hash_length: usize,
 	ticket_prefix: &str,
-) {
+) -> Result<()> {
 	for (jira_ticket_option, (commits_object_a, commits_object_b)) in jira_ticket_intersection {
 		let jira_ticket = if let Some(ticket) = jira_ticket_option {
 			format!("{ticket_prefix}{ticket}")
@@ -553,35 +614,50 @@ fn display_jira_ticket_commit_list_intersection(
 		let commits_object_b = commits_object_b
 			.expect("the Option types are just present for the population stage of the process");
 		if show_commits {
-			println!("- {jira_ticket}:");
-			println!("\t- On `{object_a}`:");
-			display_commit_reference_tree(commits_object_a.as_slice(), 2, hash_length);
-			println!("\t- On `{object_b}`:");
-			display_commit_reference_tree(commits_object_b.as_slice(), 2, hash_length);
+			writeln!(multi_writer, "- {jira_ticket}:")?;
+			writeln!(multi_writer, "\t- On `{object_a}`:")?;
+			display_commit_reference_tree(
+				multi_writer,
+				commits_object_a.as_slice(),
+				2,
+				hash_length,
+			)?;
+			writeln!(multi_writer, "\t- On `{object_b}`:")?;
+			display_commit_reference_tree(
+				multi_writer,
+				commits_object_b.as_slice(),
+				2,
+				hash_length,
+			)?;
 		} else {
-			println!(
+			writeln!(
+				multi_writer,
 				"- {jira_ticket} ({} : {})",
 				commits_object_a.len(),
 				commits_object_b.len()
-			);
+			)?;
 		}
 	}
+
+	Ok(())
 }
 
 /// Displays the commit reference tree for a set of commits.
 fn display_commit_reference_tree(
+	multi_writer: &mut MultiWriter,
 	included_commits: &[IncludedCommit],
 	indentation: u32,
 	hash_length: usize,
-) {
+) -> Result<()> {
 	for included_commit in included_commits {
 		// Print the indentation
 		for _ in 0..indentation {
-			print!("\t");
+			write!(multi_writer, "\t")?;
 		}
 
 		// Print the commit revision
-		println!(
+		writeln!(
+			multi_writer,
 			"- `{}`{}",
 			&included_commit.commit.git_revision[0..hash_length],
 			if included_commit.commit.is_likely_a_merge {
@@ -589,13 +665,16 @@ fn display_commit_reference_tree(
 			} else {
 				""
 			}
-		);
+		)?;
 
 		// Recurse over the referenced commits
 		display_commit_reference_tree(
+			multi_writer,
 			included_commit.referenced_commits.as_slice(),
 			indentation + 1,
 			hash_length,
-		);
+		)?;
 	}
+
+	Ok(())
 }

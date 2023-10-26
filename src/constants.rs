@@ -2,6 +2,8 @@
 //! modules.
 
 // Constants
+pub const APPLICATION_PROPER_NAME: &str = "CLog";
+pub const APPLICATION_BIN_NAME: &str = env!("CARGO_PKG_NAME");
 pub const SHA1_HASH_LENGTH: usize = 20;
 pub const SHA1_HASH_ASCII_LENGTH: usize = SHA1_HASH_LENGTH * 2;
 /// This value comes from a Git SVN migration, and prefixes the data about the

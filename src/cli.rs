@@ -3,11 +3,9 @@
 // Uses
 use clap::{builder::NonEmptyStringValueParser, value_parser, Arg, ArgAction, ArgGroup, Command};
 
-use crate::constants::SHA1_HASH_ASCII_LENGTH;
+use crate::constants::{APPLICATION_PROPER_NAME, SHA1_HASH_ASCII_LENGTH};
 
 // Constants
-pub const APPLICATION_PROPER_NAME: &str = "CLog";
-pub const APPLICATION_BIN_NAME: &str = env!("CARGO_PKG_NAME");
 const HELP_TEMPLATE: &str = "\
 {before-help}{name} {version}
 {author-with-newline}{about-with-newline}
@@ -121,6 +119,24 @@ pub fn build_cli() -> Command {
 			 make the output more directly-usable with external tools, like turning each ticket \
 			 into a tag in Obsidian.",
 		);
+	let copy_to_clipboard_arg = Arg::new("copy-to-clipboard")
+		.short('C')
+		.long("copy-to-clipboard")
+		.visible_alias("clipboard")
+		.visible_alias("copy")
+		.num_args(0..=1)
+		.default_value("false")
+		.default_missing_value("true")
+		.action(ArgAction::Set)
+		.value_name("TRUE/FALSE")
+		.value_parser(value_parser!(bool))
+		.help(format!(
+			"Copy the output to the clipboard automatically, which makes it easy to paste \
+			 elsewhere with the correct formatting.\nNote that on some operating systems (Linux), \
+			 the clipboard contents are lost when the application that set them exits. To avoid \
+			 this, {APPLICATION_PROPER_NAME} will wait until Enter is pressed before exiting so \
+			 that the contents can be pasted where they're needed.",
+		));
 
 	let list_subcommand = Command::new("list")
 		.about("Generates lists of information based on a provided revspec.")
@@ -150,7 +166,8 @@ pub fn build_cli() -> Command {
 		.arg(include_mentioned_arg.clone())
 		.arg(show_commits_arg.clone())
 		.arg(hash_length_arg.clone())
-		.arg(ticket_prefix_arg.clone());
+		.arg(ticket_prefix_arg.clone())
+		.arg(copy_to_clipboard_arg.clone());
 
 	let compare_subcommand = Command::new("compare")
 		.about(
@@ -201,7 +218,8 @@ pub fn build_cli() -> Command {
 		.arg(include_mentioned_arg)
 		.arg(show_commits_arg)
 		.arg(hash_length_arg.clone())
-		.arg(ticket_prefix_arg.clone());
+		.arg(ticket_prefix_arg.clone())
+		.arg(copy_to_clipboard_arg);
 
 	let revmap_subcommand = Command::new("revmap")
 		.visible_alias("build-revmap") // Since `clog` started as `build-revmap`
