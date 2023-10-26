@@ -108,6 +108,7 @@ pub fn build_cli() -> Command {
 			 information for technical reasons is required.",
 		);
 	let ticket_prefix_arg = Arg::new("ticket-prefix")
+		.short('P')
 		.long("ticket-prefix")
 		.visible_alias("jira-ticket-prefix")
 		.visible_alias("jira-prefix")
