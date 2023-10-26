@@ -2,6 +2,7 @@
 
 # Based on the release script for `git-cliff`, with additional adjustments
 
+REMOTE_NAME="origin"
 TAG="$1"
 
 if [ -z "$TAG" ]; then
@@ -18,7 +19,7 @@ fi
 set -o errexit
 
 # Update the version
-CARGO_VERSION_COMMENT="# Managed by release.sh"
+CARGO_VERSION_COMMENT="# Managed by "\`"release.sh"\`""
 sed "s/^version = .* $CARGO_VERSION_COMMENT$/version = \"${TAG#v}\" $CARGO_VERSION_COMMENT/" -i Cargo.toml
 
 # Run checks to ensure everything is good
@@ -39,7 +40,12 @@ git tag -s -a "$TAG" -m "Release $TAG."
 git tag -v "$TAG"
 
 # Done
+echo
 echo "New version created successfully."
+echo
+echo "Push the changes and new tag to the remote with (assuming the remote name is "\`"$REMOTE_NAME"\`"):"
+echo "	"\`"git push $REMOTE_NAME && git push $REMOTE_NAME $TAG"\`""
+echo
 echo "Changelog to copy into the release notes:"
 echo
 git cliff --current --strip all
