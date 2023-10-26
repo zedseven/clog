@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2023-10-26
+
+### Features
+
+- Add a new option, `copy-to-clipboard`, that copies the output to the clipboard automatically. This makes it easy to paste elsewhere with the correct formatting. ([9ed11d90](https://github.com/zedseven/clog/commit/9ed11d90))
+- Move the `-m` short alias from `include-merge-commits` to `include-mentioned`, and add `-M` as a short alias for `include-merge-commits`. ([90e70ce7](https://github.com/zedseven/clog/commit/90e70ce7))
+- Add `-P` as a short alias for `ticket-prefix`. ([a21b080f](https://github.com/zedseven/clog/commit/a21b080f))
+
+### Miscellaneous Tasks
+
+- Refactor `release.sh` and change the `git-cliff` command used to generate release notes for a tag. ([3ab666bb](https://github.com/zedseven/clog/commit/3ab666bb))
+
 ## [0.5.0] - 2023-10-06
 
 ### Bug Fixes
