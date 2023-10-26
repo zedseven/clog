@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
-# Based on the release script for git-cliff, with additional adjustments
+# Based on the release script for `git-cliff`, with additional adjustments
 
-NEWLINE=$'\n'
 TAG="$1"
 
 if [ -z "$TAG" ]; then
@@ -15,28 +14,32 @@ if [ -n "$(git status --porcelain)" ]; then
 	exit 1
 fi
 
+# Exit early if any command is unsuccessful
+set -o errexit
 
 # Update the version
 CARGO_VERSION_COMMENT="# Managed by release.sh"
-sed "s/^version = .* $CARGO_VERSION_COMMENT$/version = \"${TAG#v}\" $CARGO_VERSION_COMMENT/" -i Cargo.toml || exit
+sed "s/^version = .* $CARGO_VERSION_COMMENT$/version = \"${TAG#v}\" $CARGO_VERSION_COMMENT/" -i Cargo.toml
 
 # Run checks to ensure everything is good
-cargo fmt --all --check || exit
-cargo clippy || exit # This also updates Cargo.lock
+cargo fmt --all --check
+cargo clippy # This also updates `Cargo.lock`
 
 # Generate the changelog
-git cliff --tag "$TAG" > CHANGELOG.md || exit
+git cliff --tag "$TAG" > CHANGELOG.md
 
 # Commit the version update and new changelog
 git add --all && git commit -m "misc(release): Prepare for $TAG."
 git show
 
 # Create a signed tag for the new version
-git tag -s -a "$TAG" -m "Release $TAG." || exit
+git tag -s -a "$TAG" -m "Release $TAG."
 
 # Verify and show the new tag
-git tag -v "$TAG" || exit
+git tag -v "$TAG"
 
 # Done
 echo "New version created successfully."
-echo "Create the changelog for the release notes with: "\`"git cliff --tag \"$TAG\" --unreleased --strip all"\`""
+echo "Changelog to copy into the release notes:"
+echo
+git cliff --current --strip all
