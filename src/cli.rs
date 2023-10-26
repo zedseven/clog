@@ -58,7 +58,7 @@ pub fn build_cli() -> Command {
 		)
 		.value_parser(NonEmptyStringValueParser::new());
 	let include_merge_commits_arg = Arg::new("include-merge-commits")
-		.short('m')
+		.short('M')
 		.long("include-merge-commits")
 		.visible_alias("include-merges")
 		.visible_alias("merge-commits")
@@ -73,6 +73,7 @@ pub fn build_cli() -> Command {
 			 much to the resulting data, and tend to bloat the results.",
 		);
 	let include_mentioned_arg = Arg::new("include-mentioned")
+		.short('m')
 		.long("include-mentioned")
 		.visible_alias("mentioned")
 		.visible_alias("mentioned-tickets")
