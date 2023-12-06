@@ -8,6 +8,9 @@
 # JetBrains IDEs' config & project settings directory
 **/.idea/
 
+# direnv's directory
+/.direnv/
+
 # Library files put in the project directory because Windows' PATH searching is terrible
 **/*.lib
 
