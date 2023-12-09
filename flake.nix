@@ -24,7 +24,7 @@
       overlays = [rust-overlay.overlays.default];
     };
 
-    rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./toolchain.toml;
+    rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
 
     craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
     src = self;
