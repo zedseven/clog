@@ -214,14 +214,15 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	// merge of other commits. It is not perfect.
 	// Conditions:
 	// 	- Is a merge commit (multiple parent commits)
-	// 	- Mentions merging
+	// 	- Mentions merging and references at least one other commit
 	// 	- Only references one Git commit (cherry-picks are applied one commit at a
 	//    time, unless squashed, in which case we don't get a nice message anyway)
-	// 	- The Git commit reference is using the full hash (indicative of a
+	//    and the Git commit reference is using the full hash (indicative of a
 	//    cherry-pick message)
 	// 	- References multiple SVN revisions
 	let is_likely_a_merge = parent_revisions.len() > 1
-		|| mentions_merging
+		|| (mentions_merging
+			&& (!referenced_git_commits_set.is_empty() || !referenced_svn_commits_set.is_empty()))
 		|| (referenced_git_commits_set.len() == 1
 			&& referenced_git_commits_set
 				.iter()
