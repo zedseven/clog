@@ -57,11 +57,14 @@ impl<'a> Index<'a> {
 						.and_modify(|referencing_commits| referencing_commits.push(commit))
 						.or_insert_with(|| vec![referenced_commit]);
 				} else {
-					eprintln!(
-						"[WARNING] Git revision `{git_revision}` referenced by commit `{}` could \
-						 not be found.",
-						commit.git_revision
-					);
+					#[cfg(debug_assertions)]
+					if is_likely_a_real_git_revision(git_revision) {
+						eprintln!(
+							"[WARNING] Git revision `{git_revision}` referenced by commit `{}` \
+							 could not be found.",
+							commit.git_revision
+						);
+					}
 				}
 			}
 
@@ -78,11 +81,14 @@ impl<'a> Index<'a> {
 						.and_modify(|referencing_commits| referencing_commits.push(commit))
 						.or_insert_with(|| vec![commit]);
 				} else {
-					eprintln!(
-						"[WARNING] SVN revision `{svn_revision}` referenced by commit `{}` could \
-						 not be found.",
-						commit.git_revision
-					);
+					#[cfg(debug_assertions)]
+					{
+						eprintln!(
+							"[WARNING] SVN revision `{svn_revision}` referenced by commit `{}` \
+							 could not be found.",
+							commit.git_revision
+						);
+					}
 				}
 			}
 		}
@@ -145,4 +151,23 @@ impl<'a> Index<'a> {
 			.get(commit)
 			.map_or(Vec::new(), Clone::clone)
 	}
+}
+
+fn is_likely_a_real_git_revision(potential_git_revision: &str) -> bool {
+	const ASCII_HEX_ALPHA_CHARS: &[char] =
+		&['a', 'b', 'c', 'd', 'e', 'f', 'A', 'B', 'C', 'D', 'E', 'F'];
+
+	/// Checks if a string is the same character repeated over and over.
+	fn is_repeated_char(s: &str) -> bool {
+		if s.is_empty() {
+			return false;
+		}
+
+		let first_char = s.chars().next().unwrap();
+
+		s.trim_end_matches(first_char).is_empty()
+	}
+
+	potential_git_revision.contains(ASCII_HEX_ALPHA_CHARS)
+		&& !is_repeated_char(potential_git_revision)
 }
