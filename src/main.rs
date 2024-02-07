@@ -621,11 +621,13 @@ fn main() -> Result<()> {
 				writeln!(&mut multi_writer, "- Set {index}:")?;
 				writeln!(&mut multi_writer, "\t- Commits:")?;
 				display_commit_set(&mut multi_writer, commit_set.as_slice(), 2, hash_length)?;
-				writeln!(&mut multi_writer, "\t- Branches:")?;
-				for branch in branch_list {
-					writeln!(&mut multi_writer, "\t\t- `{branch}`")?;
+				if !branch_list.is_empty() {
+					writeln!(&mut multi_writer, "\t- Branches:")?;
+					for branch in branch_list {
+						writeln!(&mut multi_writer, "\t\t- `{branch}`")?;
+					}
 				}
-				if search_tags {
+				if search_tags && !tag_list.is_empty() {
 					writeln!(&mut multi_writer, "\t- Tags:")?;
 					for tag in tag_list {
 						writeln!(&mut multi_writer, "\t\t- `{tag}`")?;
