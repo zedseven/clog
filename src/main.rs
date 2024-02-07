@@ -69,6 +69,7 @@ use crate::{
 		flatten_inclusion_tree,
 		get_branches_containing,
 		get_search_results,
+		get_tags_containing,
 		IncludedCommit,
 	},
 	util::sortable_jira_ticket,
@@ -478,7 +479,7 @@ fn main() -> Result<()> {
 				.get_many::<String>("jira-ticket")
 				.expect("Clap ensures at least one argument is provided")
 				.collect::<Vec<_>>();
-			// let search_tags = *matches.get_one::<bool>("search-tags").unwrap_or(&false);
+			let search_tags = *matches.get_one::<bool>("search-tags").unwrap_or(&false);
 			let include_mentioned_jira_tickets = *matches
 				.get_one::<bool>("include-mentioned")
 				.unwrap_or(&false);
@@ -551,7 +552,9 @@ fn main() -> Result<()> {
 			let flattened_inclusion_tree =
 				flatten_inclusion_tree(back_reference_inclusion_tree.as_slice());
 			let mut commits_per_branch: HashMap<String, Vec<&Commit>> = HashMap::new();
+			let mut commits_per_tag: HashMap<String, Vec<&Commit>> = HashMap::new();
 			for commit in flattened_inclusion_tree {
+				// Process all branches containing the commit
 				let branches_containing_commit =
 					get_branches_containing(repo_dir, commit.git_revision.as_str()).with_context(
 						|| "unable to get the list of branches containing a commit",
@@ -562,42 +565,71 @@ fn main() -> Result<()> {
 						.and_modify(|commit_set| commit_set.push(commit))
 						.or_insert_with(|| vec![commit]);
 				}
+
+				// Process all tags containing the commit
+				if search_tags {
+					let tags_containing_commit =
+						get_tags_containing(repo_dir, commit.git_revision.as_str()).with_context(
+							|| "unable to get the list of tags containing a commit",
+						)?;
+					for tag in tags_containing_commit {
+						commits_per_tag
+							.entry(tag)
+							.and_modify(|commit_set| commit_set.push(commit))
+							.or_insert_with(|| vec![commit]);
+					}
+				}
 			}
 
 			// Group those locations by the commits they contain
-			let mut branches_per_commit_set: HashMap<Vec<&Commit>, Vec<String>> = HashMap::new();
+			let mut locations_per_commit_set: HashMap<Vec<&Commit>, (Vec<String>, Vec<String>)> =
+				HashMap::new();
 			for (branch, commit_set) in commits_per_branch {
-				branches_per_commit_set
+				locations_per_commit_set
 					.entry(commit_set)
-					.and_modify(|branch_list| branch_list.push(branch.clone()))
-					.or_insert_with(|| vec![branch]);
+					.and_modify(|(branch_list, _)| branch_list.push(branch.clone()))
+					.or_insert_with(|| (vec![branch], Vec::new()));
+			}
+			for (tag, commit_set) in commits_per_tag {
+				locations_per_commit_set
+					.entry(commit_set)
+					.and_modify(|(_, tag_list)| tag_list.push(tag.clone()))
+					.or_insert_with(|| (Vec::new(), vec![tag]));
 			}
 
-			// Sort the branch lists
-			// The branches are collected into the sets without a particular order, and
+			// Sort the location lists
+			// The locations are collected into the sets without a particular order, and
 			// sorting them makes the final output more readable
-			let mut branches_per_commit_set_ordered =
-				branches_per_commit_set.drain().collect::<Vec<_>>();
-			for (_, branch_set) in &mut branches_per_commit_set_ordered {
-				branch_set.sort();
+			let mut locations_per_commit_set_ordered =
+				locations_per_commit_set.drain().collect::<Vec<_>>();
+			for (_, (branch_list, tag_list)) in &mut locations_per_commit_set_ordered {
+				branch_list.sort();
+				tag_list.sort();
 			}
 
 			// Sort the list of branch sets to put the sets with the most branches near the
 			// top
-			branches_per_commit_set_ordered.sort_by_key(|(_, branch_set)| branch_set.len());
-			branches_per_commit_set_ordered.reverse();
+			locations_per_commit_set_ordered
+				.sort_by_key(|(_, (branch_list, tag_list))| branch_list.len() + tag_list.len());
+			locations_per_commit_set_ordered.reverse();
 
 			// Display the branches where each specific set of commits is
 			writeln!(&mut multi_writer, "Results:")?;
-			for (index, (commit_set, branch_set)) in
-				branches_per_commit_set_ordered.iter().enumerate()
+			for (index, (commit_set, (branch_list, tag_list))) in
+				locations_per_commit_set_ordered.iter().enumerate()
 			{
 				writeln!(&mut multi_writer, "- Set {index}:")?;
 				writeln!(&mut multi_writer, "\t- Commits:")?;
 				display_commit_set(&mut multi_writer, commit_set.as_slice(), 2, hash_length)?;
 				writeln!(&mut multi_writer, "\t- Branches:")?;
-				for branch in branch_set {
+				for branch in branch_list {
 					writeln!(&mut multi_writer, "\t\t- `{branch}`")?;
+				}
+				if search_tags {
+					writeln!(&mut multi_writer, "\t- Tags:")?;
+					for tag in tag_list {
+						writeln!(&mut multi_writer, "\t\t- `{tag}`")?;
+					}
 				}
 			}
 

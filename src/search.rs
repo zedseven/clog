@@ -115,6 +115,32 @@ where
 	Ok(branch_list)
 }
 
+pub fn get_tags_containing<P>(repo_dir: P, commit_revision: &str) -> Result<Vec<String>>
+where
+	P: AsRef<Path>,
+{
+	// Prepare the `git branch` command for the search
+	let mut command = Command::new("git");
+	command
+		.arg("tag")
+		.arg("--contains")
+		.arg(commit_revision)
+		.current_dir(repo_dir);
+
+	// Run the command
+	let tag_list_raw = run_command(command)
+		.with_context(|| format!("unable to get the tags that contain {commit_revision}"))?;
+	let tag_list = tag_list_raw
+		.lines()
+		.filter_map(|line| {
+			let line = line.trim();
+			(!line.is_empty()).then(|| line.to_owned())
+		})
+		.collect::<Vec<_>>();
+
+	Ok(tag_list)
+}
+
 pub fn build_commit_inclusion_tree<'a>(
 	index: &Index<'a>,
 	commit_list: &[&'a Commit],
