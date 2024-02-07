@@ -21,6 +21,8 @@ pub fn build_cli() -> Command {
 		.long("repo")
 		.visible_alias("repository")
 		.visible_alias("git-repo")
+		.visible_alias("repo-dir")
+		.visible_alias("repo-directory")
 		.num_args(1)
 		.default_value(".")
 		.action(ArgAction::Set)
