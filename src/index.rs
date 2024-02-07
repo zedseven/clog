@@ -12,8 +12,10 @@ use crate::collection::Commit;
 
 #[derive(Debug)]
 pub struct Index<'a> {
-	pub git_revision_map:        BTreeMap<&'a str, &'a Commit>,
-	pub svn_to_git_revision_map: HashMap<u32, &'a str>,
+	git_revision_map:        BTreeMap<&'a str, &'a Commit>,
+	svn_to_git_revision_map: HashMap<u32, &'a str>,
+	forward_references:      HashMap<&'a Commit, Vec<&'a Commit>>,
+	backward_references:     HashMap<&'a Commit, Vec<&'a Commit>>,
 }
 
 impl<'a> Index<'a> {
@@ -31,11 +33,64 @@ impl<'a> Index<'a> {
 			}
 		}
 
-		// Return the completed index
-		Ok(Self {
+		let mut index = Self {
 			git_revision_map,
 			svn_to_git_revision_map,
-		})
+			forward_references: HashMap::new(),
+			backward_references: HashMap::new(),
+		};
+
+		// Build the reference maps using the functionality provided by the first stage
+		let mut forward_references: HashMap<&Commit, Vec<&Commit>> = HashMap::new();
+		let mut backward_references: HashMap<&Commit, Vec<&Commit>> = HashMap::new();
+		for commit in commits {
+			// Follow Git revision references
+			for git_revision in &commit.referenced_commits.git_commits {
+				// Lookup the reference
+				if let Ok(referenced_commit) = index.lookup_git_revision(git_revision.as_str()) {
+					forward_references
+						.entry(commit)
+						.and_modify(|referenced_commits| referenced_commits.push(referenced_commit))
+						.or_insert_with(|| vec![referenced_commit]);
+					backward_references
+						.entry(referenced_commit)
+						.and_modify(|referencing_commits| referencing_commits.push(commit))
+						.or_insert_with(|| vec![referenced_commit]);
+				} else {
+					eprintln!(
+						"[WARNING] Git revision `{git_revision}` referenced by commit `{}` could \
+						 not be found.",
+						commit.git_revision
+					);
+				}
+			}
+
+			// Follow SVN revision references
+			for svn_revision in &commit.referenced_commits.svn_commits {
+				// Lookup the reference
+				if let Ok(referenced_commit) = index.lookup_svn_revision(*svn_revision) {
+					forward_references
+						.entry(commit)
+						.and_modify(|referenced_commits| referenced_commits.push(referenced_commit))
+						.or_insert_with(|| vec![referenced_commit]);
+					backward_references
+						.entry(referenced_commit)
+						.and_modify(|referencing_commits| referencing_commits.push(commit))
+						.or_insert_with(|| vec![commit]);
+				} else {
+					eprintln!(
+						"[WARNING] SVN revision `{svn_revision}` referenced by commit `{}` could \
+						 not be found.",
+						commit.git_revision
+					);
+				}
+			}
+		}
+		index.forward_references = forward_references;
+		index.backward_references = backward_references;
+
+		// Return the completed index
+		Ok(index)
 	}
 
 	pub fn lookup_git_revision(&self, partial_revision: &str) -> Result<&'a Commit> {
@@ -77,5 +132,17 @@ impl<'a> Index<'a> {
 			"there should always be a Git commit if the entry exists in the SVN to Git revision \
 			 map",
 		))
+	}
+
+	pub fn get_commit_forward_references(&self, commit: &'a Commit) -> Vec<&'a Commit> {
+		self.forward_references
+			.get(commit)
+			.map_or(Vec::new(), Clone::clone)
+	}
+
+	pub fn get_commit_backward_references(&self, commit: &'a Commit) -> Vec<&'a Commit> {
+		self.backward_references
+			.get(commit)
+			.map_or(Vec::new(), Clone::clone)
 	}
 }

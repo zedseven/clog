@@ -87,9 +87,9 @@ pub fn build_cli() -> Command {
 		.value_name("TRUE/FALSE")
 		.value_parser(value_parser!(bool))
 		.help(
-			"Include Jira tickets that were mentioned anywhere in the commit message, instead of \
-			 just at the beginning. Please note that if using this feature, the same commit may \
-			 be counted in multiple Jira tickets.",
+			"Consider a commit to be part of a Jira ticket if the ticket was mentioned anywhere \
+			 in the commit message, instead of just at the beginning. Please note that if using \
+			 this feature, the same commit may be counted in multiple Jira tickets.",
 		);
 	let show_commits_arg = Arg::new("show-commits")
 		.short('c')
@@ -217,10 +217,47 @@ pub fn build_cli() -> Command {
 					 functionality in case of issues.",
 				),
 		)
-		.arg(include_mentioned_arg)
+		.arg(include_mentioned_arg.clone())
 		.arg(show_commits_arg)
 		.arg(hash_length_arg.clone())
 		.arg(ticket_prefix_arg.clone())
+		.arg(copy_to_clipboard_arg.clone());
+
+	let search_subcommand = Command::new("search")
+		.about(
+			"Searches for tickets, displaying all locations where any of their commits were \
+			 merged.",
+		)
+		.arg_required_else_help(true)
+		.arg(repo_arg.clone())
+		.arg(
+			Arg::new("jira-ticket")
+				.num_args(1..)
+				.action(ArgAction::Set)
+				.value_name("TICKET")
+				.required(true)
+				.help(
+					"A Jira ticket to search. Can be specified multiple times to search multiple \
+					 tickets.",
+				)
+				.value_parser(NonEmptyStringValueParser::new()),
+		)
+		// .arg(
+		// 	Arg::new("search-tags")
+		// 		.short('t')
+		// 		.long("search-tags")
+		// 		.visible_alias("tags")
+		// 		.num_args(0..=1)
+		// 		.default_value("false")
+		// 		.default_missing_value("true")
+		// 		.action(ArgAction::Set)
+		// 		.value_name("TRUE/FALSE")
+		// 		.value_parser(value_parser!(bool))
+		// 		.help("List tags in the search results as well as branches."),
+		// )
+		.arg(include_mentioned_arg)
+		.arg(hash_length_arg.clone())
+		.arg(ticket_prefix_arg)
 		.arg(copy_to_clipboard_arg);
 
 	let revmap_subcommand = Command::new("revmap")
@@ -271,5 +308,6 @@ pub fn build_cli() -> Command {
 		.help_expected(true)
 		.subcommand(list_subcommand)
 		.subcommand(compare_subcommand)
+		.subcommand(search_subcommand)
 		.subcommand(revmap_subcommand)
 }

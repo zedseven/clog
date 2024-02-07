@@ -2,7 +2,7 @@
 
 // Uses
 use std::{
-	collections::HashSet,
+	collections::{HashSet, VecDeque},
 	hash::{Hash, Hasher},
 	path::Path,
 	process::Command,
@@ -17,11 +17,12 @@ use crate::{
 	util::{inside_out_result, run_command},
 };
 
+/// A commit with its references packed alongside it, ready for display as a
+/// search result.
 #[derive(Clone, Debug)]
 pub struct IncludedCommit<'a> {
-	pub commit:             &'a Commit,
-	pub referenced_commits: Vec<IncludedCommit<'a>>,
-	pub visitation_num:     usize,
+	pub commit:         &'a Commit,
+	pub linked_commits: Vec<IncludedCommit<'a>>,
 }
 
 // Since the Git revision is already a hash and will be unique, this
@@ -84,14 +85,50 @@ where
 		})
 		.collect::<Vec<_>>();
 
+	build_commit_inclusion_tree(index, commit_list.as_slice(), true, false)
+}
+
+pub fn get_branches_containing<P>(repo_dir: P, commit_revision: &str) -> Result<Vec<String>>
+where
+	P: AsRef<Path>,
+{
+	// Prepare the `git branch` command for the search
+	let mut command = Command::new("git");
+	command
+		.arg("branch")
+		.arg("--remotes")
+		.arg("--contains")
+		.arg(commit_revision)
+		.current_dir(repo_dir);
+
+	// Run the command
+	let branch_list_raw = run_command(command)
+		.with_context(|| format!("unable to get the branches that contain {commit_revision}"))?;
+	let branch_list = branch_list_raw
+		.lines()
+		.filter_map(|line| {
+			let line = line.trim();
+			(!line.is_empty()).then(|| line.to_owned())
+		})
+		.collect::<Vec<_>>();
+
+	Ok(branch_list)
+}
+
+pub fn build_commit_inclusion_tree<'a>(
+	index: &Index<'a>,
+	commit_list: &[&'a Commit],
+	traverse_forward_references: bool,
+	only_consider_likely_merges: bool,
+) -> Result<Vec<IncludedCommit<'a>>> {
 	// This exists to prevent circular references and processing the same commit
 	// multiple times
 	let mut visited_commits = HashSet::new();
 
 	// The need for this is a little bizarre. Basically, we want direct search
 	// results to always appear on the top level (no nesting), so their Jira tickets
-	// get processed etc. To accomplish this, we preliminarily block them from being
-	// processed recursively.
+	// get processed, etc. To accomplish this, we preliminarily block them from
+	// being processed recursively.
 	// The `recursion_has_happened` flag is always false for the top-level
 	// processing, but in all recursive processing, it's true. When false, we ignore
 	// the `visited_commits` list altogether.
@@ -105,7 +142,16 @@ where
 	// etc.
 	let included_commits = commit_list
 		.iter()
-		.map(|commit| visit_commit(index, &mut visited_commits, false, commit))
+		.map(|commit| {
+			visit_commit(
+				index,
+				&mut visited_commits,
+				traverse_forward_references,
+				only_consider_likely_merges,
+				false,
+				commit,
+			)
+		})
 		.filter_map(inside_out_result)
 		.collect::<Result<Vec<_>>>()
 		.with_context(|| "unable to process the commit search results")?;
@@ -113,9 +159,24 @@ where
 	Ok(included_commits)
 }
 
+pub fn flatten_inclusion_tree<'a>(inclusion_tree: &[IncludedCommit<'a>]) -> Vec<&'a Commit> {
+	let mut flattened_commit_list = Vec::new();
+	let mut commits_to_visit = VecDeque::new();
+	commits_to_visit.extend(inclusion_tree);
+
+	while let Some(included_commit) = commits_to_visit.pop_front() {
+		flattened_commit_list.push(included_commit.commit);
+		commits_to_visit.extend(&included_commit.linked_commits);
+	}
+
+	flattened_commit_list
+}
+
 fn visit_commit<'a>(
 	index: &Index<'a>,
 	visited_commits: &mut HashSet<&'a str>,
+	traverse_forward_references: bool,
+	only_consider_likely_merges: bool,
 	recursion_has_happened: bool,
 	commit: &'a Commit,
 ) -> Result<Option<IncludedCommit<'a>>> {
@@ -125,60 +186,33 @@ fn visit_commit<'a>(
 		return Ok(None);
 	}
 
-	// Prepare the collection for referenced commits
-	let mut referenced_commits = Vec::new();
-
-	// Follow Git revision references
-	for git_revision in &commit.referenced_commits.git_commits {
-		// Lookup the reference
-		if let Ok(referenced_commit) = index.lookup_git_revision(git_revision.as_str()) {
-			// Ensure this is an unvisited commit
-			if visited_commits.contains(referenced_commit.git_revision.as_str()) {
-				continue;
-			}
-
-			// Process the referenced commit
-			if let Some(referenced) = visit_commit(index, visited_commits, true, referenced_commit)
-				.with_context(|| "recursive operation failed")?
-			{
-				referenced_commits.push(referenced);
-			}
-		} else {
-			eprintln!(
-				"[WARNING] Git revision `{git_revision}` referenced by commit `{}` could not be \
-				 found.",
-				commit.git_revision
-			);
-		}
-	}
-
-	// Follow SVN revision references
-	for svn_revision in &commit.referenced_commits.svn_commits {
-		// Lookup the reference
-		if let Ok(referenced_commit) = index.lookup_svn_revision(*svn_revision) {
-			// Ensure this is an unvisited commit
-			if visited_commits.contains(referenced_commit.git_revision.as_str()) {
-				continue;
-			}
-
-			// Process the referenced commit
-			if let Some(referenced) = visit_commit(index, visited_commits, true, referenced_commit)
-				.with_context(|| "recursive operation failed")?
-			{
-				referenced_commits.push(referenced);
-			}
-		} else {
-			eprintln!(
-				"[WARNING] SVN revision `{svn_revision}` referenced by commit `{}` could not be \
-				 found.",
-				commit.git_revision
-			);
-		}
-	}
+	// Process all forward references of the commit
+	let raw_references = if traverse_forward_references {
+		index.get_commit_forward_references(commit)
+	} else {
+		index.get_commit_backward_references(commit)
+	};
+	let linked_commits = raw_references
+		.iter()
+		.filter(|referenced_commit| {
+			!only_consider_likely_merges || referenced_commit.is_likely_a_merge
+		})
+		.map(|referenced_commit| {
+			visit_commit(
+				index,
+				visited_commits,
+				traverse_forward_references,
+				only_consider_likely_merges,
+				true,
+				referenced_commit,
+			)
+		})
+		.filter_map(inside_out_result)
+		.collect::<Result<Vec<_>>>()
+		.with_context(|| "recursive operation failed")?;
 
 	Ok(Some(IncludedCommit {
 		commit,
-		referenced_commits,
-		visitation_num: visited_commits.len(),
+		linked_commits,
 	}))
 }

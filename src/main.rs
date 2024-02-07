@@ -61,10 +61,16 @@ use shell_words::split as split_shell_words;
 use crate::{
 	cli::build_cli,
 	clipboard::copy_str_to_clipboard,
-	collection::get_complete_commit_list,
+	collection::{get_complete_commit_list, Commit},
 	index::Index,
 	multi_writer::MultiWriter,
-	search::{get_search_results, IncludedCommit},
+	search::{
+		build_commit_inclusion_tree,
+		flatten_inclusion_tree,
+		get_branches_containing,
+		get_search_results,
+		IncludedCommit,
+	},
 	util::sortable_jira_ticket,
 	writing::{write_to_bin, write_to_markdown},
 };
@@ -138,7 +144,7 @@ fn main() -> Result<()> {
 			// Collect all commits in the repo
 			let commits =
 				get_complete_commit_list(repo_dir.as_str(), include_mentioned_jira_tickets)
-					.with_context(|| "unable to get the repo revision maps")?;
+					.with_context(|| "unable to build the complete commit list from the repo")?;
 
 			// Build the index
 			let index = Index::new(commits.as_slice())?;
@@ -250,7 +256,7 @@ fn main() -> Result<()> {
 			// Collect all commits in the repo
 			let commits =
 				get_complete_commit_list(repo_dir.as_str(), include_mentioned_jira_tickets)
-					.with_context(|| "unable to get the repo revision maps")?;
+					.with_context(|| "unable to build the complete commit list from the repo")?;
 
 			// Build the index
 			let index = Index::new(commits.as_slice())?;
@@ -313,7 +319,7 @@ fn main() -> Result<()> {
 				// covering at the moment
 				search_results_only_on_object_a.retain(|commit| {
 					if commit.commit.is_likely_a_merge {
-						for included_commit in &commit.referenced_commits {
+						for included_commit in &commit.linked_commits {
 							if search_results_only_on_object_b_hash_set.contains(included_commit) {
 								object_b_removal_set
 									.insert(included_commit.commit.git_revision.clone());
@@ -328,7 +334,7 @@ fn main() -> Result<()> {
 						return false;
 					}
 					if commit.commit.is_likely_a_merge {
-						for included_commit in &commit.referenced_commits {
+						for included_commit in &commit.linked_commits {
 							if search_results_only_on_object_a_hash_set.contains(included_commit) {
 								object_a_removal_set
 									.insert(included_commit.commit.git_revision.clone());
@@ -463,6 +469,146 @@ fn main() -> Result<()> {
 				))?;
 			}
 		}
+		Some(("search", matches)) => {
+			// Collect the CLI arguments that were provided
+			let repo_dir = matches
+				.get_one::<String>("repo")
+				.expect("Clap ensures the argument is provided");
+			let jira_tickets = matches
+				.get_many::<String>("jira-ticket")
+				.expect("Clap ensures at least one argument is provided")
+				.collect::<Vec<_>>();
+			// let search_tags = *matches.get_one::<bool>("search-tags").unwrap_or(&false);
+			let include_mentioned_jira_tickets = *matches
+				.get_one::<bool>("include-mentioned")
+				.unwrap_or(&false);
+			let hash_length = *matches
+				.get_one::<u32>("hash-length")
+				.expect("Clap provides a default value") as usize;
+			let ticket_prefix = matches
+				.get_one::<String>("ticket-prefix")
+				.expect("Clap provides a default value");
+			let copy_to_clipboard = *matches
+				.get_one::<bool>("copy-to-clipboard")
+				.unwrap_or(&false);
+
+			// Print the search criteria
+			writeln!(
+				&mut multi_writer,
+				"Searching for all locations where any commits were merged for the following:"
+			)?;
+			for jira_ticket in &jira_tickets {
+				writeln!(&mut multi_writer, "- {ticket_prefix}{jira_ticket}")?;
+			}
+
+			writeln!(&mut multi_writer)?;
+
+			// Collect all commits in the repo
+			let commits =
+				get_complete_commit_list(repo_dir.as_str(), include_mentioned_jira_tickets)
+					.with_context(|| "unable to build the complete commit list from the repo")?;
+
+			// Build the index
+			let index = Index::new(commits.as_slice())?;
+
+			// Find commits that belong to the ticket directly
+			// This is an expensive operation, but building it into the index would likely
+			// be even worse since we only search once
+			let direct_commits = commits
+				.iter()
+				.filter(|commit| {
+					jira_tickets
+						.iter()
+						.any(|jira_ticket| commit.jira_tickets.contains(jira_ticket))
+				})
+				.collect::<Vec<_>>();
+
+			// Find all merges of those commits
+			let back_reference_inclusion_tree =
+				build_commit_inclusion_tree(&index, direct_commits.as_slice(), false, true)
+					.with_context(|| "unable to process direct commit results")?;
+
+			// Display the back-reference inclusion tree
+			writeln!(
+				&mut multi_writer,
+				"Commit list being searched, with commits that merge them elsewhere as \
+				 sub-entries:"
+			)?;
+			display_commit_reference_tree(
+				&mut multi_writer,
+				back_reference_inclusion_tree.as_slice(),
+				0,
+				hash_length,
+			)?;
+
+			writeln!(&mut multi_writer)?;
+
+			// Find all branches (and tags, if requested) that contain any of those commits
+			// This yields a list of locations per commit, which then need to be transposed
+			// into a list of commits per location
+			// A `Vec` is used here instead of a `HashSet` to preserve the order of the
+			// commits
+			let flattened_inclusion_tree =
+				flatten_inclusion_tree(back_reference_inclusion_tree.as_slice());
+			let mut commits_per_branch: HashMap<String, Vec<&Commit>> = HashMap::new();
+			for commit in flattened_inclusion_tree {
+				let branches_containing_commit =
+					get_branches_containing(repo_dir, commit.git_revision.as_str()).with_context(
+						|| "unable to get the list of branches containing a commit",
+					)?;
+				for branch in branches_containing_commit {
+					commits_per_branch
+						.entry(branch)
+						.and_modify(|commit_set| commit_set.push(commit))
+						.or_insert_with(|| vec![commit]);
+				}
+			}
+
+			// Group those locations by the commits they contain
+			let mut branches_per_commit_set: HashMap<Vec<&Commit>, Vec<String>> = HashMap::new();
+			for (branch, commit_set) in commits_per_branch {
+				branches_per_commit_set
+					.entry(commit_set)
+					.and_modify(|branch_list| branch_list.push(branch.clone()))
+					.or_insert_with(|| vec![branch]);
+			}
+
+			// Sort the branch lists
+			// The branches are collected into the sets without a particular order, and
+			// sorting them makes the final output more readable
+			let mut branches_per_commit_set_ordered =
+				branches_per_commit_set.drain().collect::<Vec<_>>();
+			for (_, branch_set) in &mut branches_per_commit_set_ordered {
+				branch_set.sort();
+			}
+
+			// Sort the list of branch sets to put the sets with the most branches near the
+			// top
+			branches_per_commit_set_ordered.sort_by_key(|(_, branch_set)| branch_set.len());
+			branches_per_commit_set_ordered.reverse();
+
+			// Display the branches where each specific set of commits is
+			writeln!(&mut multi_writer, "Results:")?;
+			for (index, (commit_set, branch_set)) in
+				branches_per_commit_set_ordered.iter().enumerate()
+			{
+				writeln!(&mut multi_writer, "- Set {index}:")?;
+				writeln!(&mut multi_writer, "\t- Commits:")?;
+				display_commit_set(&mut multi_writer, commit_set.as_slice(), 2, hash_length)?;
+				writeln!(&mut multi_writer, "\t- Branches:")?;
+				for branch in branch_set {
+					writeln!(&mut multi_writer, "\t\t- `{branch}`")?;
+				}
+			}
+
+			// Copy the output to the clipboard if specified
+			if copy_to_clipboard {
+				copy_str_to_clipboard(from_utf8(string_output_raw.as_slice()).expect(
+					"only string values were written to the buffer, so it's guaranteed to be \
+					 valid UTF-8",
+				))?;
+			}
+		}
 		Some(("revmap", matches)) => {
 			// Collect the CLI arguments that were provided
 			let repo_dir = matches
@@ -474,7 +620,7 @@ fn main() -> Result<()> {
 
 			// Collect all commits in the repo
 			let commits = get_complete_commit_list(repo_dir.as_str(), false)
-				.with_context(|| "unable to get the repo revision maps")?;
+				.with_context(|| "unable to build the complete commit list from the repo")?;
 
 			// Build a revision map and discard any commits that don't have SVN info
 			let mut revision_map = commits
@@ -540,7 +686,7 @@ fn group_by_jira_tickets<'a>(
 				.and_modify(|ticket_commits: &mut Vec<IncludedCommit>| {
 					ticket_commits.push(included_commit.clone());
 				})
-				.or_insert(vec![included_commit.clone()]);
+				.or_insert_with(|| vec![included_commit.clone()]);
 		} else {
 			for jira_ticket in &included_commit.commit.jira_tickets {
 				jira_ticket_groups
@@ -548,7 +694,7 @@ fn group_by_jira_tickets<'a>(
 					.and_modify(|ticket_commits: &mut Vec<IncludedCommit>| {
 						ticket_commits.push(included_commit.clone());
 					})
-					.or_insert(vec![included_commit.clone()]);
+					.or_insert_with(|| vec![included_commit.clone()]);
 			}
 		}
 	}
@@ -670,9 +816,38 @@ fn display_commit_reference_tree(
 		// Recurse over the referenced commits
 		display_commit_reference_tree(
 			multi_writer,
-			included_commit.referenced_commits.as_slice(),
+			included_commit.linked_commits.as_slice(),
 			indentation + 1,
 			hash_length,
+		)?;
+	}
+
+	Ok(())
+}
+
+/// Displays a set of commits.
+fn display_commit_set(
+	multi_writer: &mut MultiWriter,
+	commits: &[&Commit],
+	indentation: u32,
+	hash_length: usize,
+) -> Result<()> {
+	for commit in commits {
+		// Print the indentation
+		for _ in 0..indentation {
+			write!(multi_writer, "\t")?;
+		}
+
+		// Print the commit revision
+		writeln!(
+			multi_writer,
+			"- `{}`{}",
+			&commit.git_revision[0..hash_length],
+			if commit.is_likely_a_merge {
+				MERGE_COMMIT_MARKER_STR
+			} else {
+				""
+			}
 		)?;
 	}
 
