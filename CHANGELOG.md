@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2024-02-07
+
+### Bug Fixes
+
+- Only show the `Branches` and `Tags` sections if they actually have values to display. ([464a22ac](https://github.com/zedseven/clog/commit/464a22ac))
+- Adjust the heuristic for detecting merge commits to only recognise messages that mention merging if they also reference at least one other commit. ([9dd9167a](https://github.com/zedseven/clog/commit/9dd9167a))
+
+### Features
+
+- Add a new subcommand, `search`, that searches for all branches where a set of tickets have changes. ([155d6fef](https://github.com/zedseven/clog/commit/155d6fef))
+- Add a new option, `search-tags`, that also searches tags as part of the `search` functionality. ([6cedfe2c](https://github.com/zedseven/clog/commit/6cedfe2c))
+- Only show the warnings about missing revisions in debug mode, and filter a bit before displaying them. ([b20bd9da](https://github.com/zedseven/clog/commit/b20bd9da))
+- Add `repo-dir` as an alias for the `repo` option. ([a92f3a60](https://github.com/zedseven/clog/commit/a92f3a60))
+
+### Miscellaneous Tasks
+
+- Make `release.sh` output the commands to run to push the changes to the remote. ([0e36454d](https://github.com/zedseven/clog/commit/0e36454d))
+- Pin the Rust toolchain version and set up the project with `direnv` & Nix. ([cb35e9d5](https://github.com/zedseven/clog/commit/cb35e9d5))
+- Update the Rust toolchain version to `nightly-2023-12-05`. ([bece85a7](https://github.com/zedseven/clog/commit/bece85a7))
+- Update `flake.nix` to have build support. ([f65e7bb4](https://github.com/zedseven/clog/commit/f65e7bb4))
+- Move `toolchain.toml` to `rust-toolchain.toml`. ([6e3f09cc](https://github.com/zedseven/clog/commit/6e3f09cc))
+- Add `cargo` as a component to `rust-toolchain.toml`. ([365df8dd](https://github.com/zedseven/clog/commit/365df8dd))
+- Update `cliff.toml` to use a regular expression for `tag_pattern`. This is required due to orhun/git-cliff#318. ([aa4a16d6](https://github.com/zedseven/clog/commit/aa4a16d6))
+- Update `cliff.toml` to only use the first line of each commit message. ([2f982716](https://github.com/zedseven/clog/commit/2f982716))
+
 ## [0.6.0] - 2023-10-26
 
 ### Features
