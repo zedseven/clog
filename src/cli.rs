@@ -257,6 +257,24 @@ pub fn build_cli() -> Command {
 				.value_parser(value_parser!(bool))
 				.help("List tags in the search results as well as branches."),
 		)
+		.arg(
+			Arg::new("local-branches")
+				.short('L')
+				.long("local-branches")
+				.visible_alias("search-local-branches")
+				.visible_alias("local")
+				.num_args(0..=1)
+				.default_value("false")
+				.default_missing_value("true")
+				.action(ArgAction::Set)
+				.value_name("TRUE/FALSE")
+				.value_parser(value_parser!(bool))
+				.help(
+					"Search local branches instead of remote ones. Note that this requires all \
+					 branches to be up-to-date in order to get accurate results, which is why \
+					 it's off by default.",
+				),
+		)
 		.arg(include_mentioned_arg)
 		.arg(hash_length_arg.clone())
 		.arg(ticket_prefix_arg)

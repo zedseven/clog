@@ -480,6 +480,7 @@ fn main() -> Result<()> {
 				.expect("Clap ensures at least one argument is provided")
 				.collect::<Vec<_>>();
 			let search_tags = *matches.get_one::<bool>("search-tags").unwrap_or(&false);
+			let local_branches = *matches.get_one::<bool>("local-branches").unwrap_or(&false);
 			let include_mentioned_jira_tickets = *matches
 				.get_one::<bool>("include-mentioned")
 				.unwrap_or(&false);
@@ -556,9 +557,10 @@ fn main() -> Result<()> {
 			for commit in flattened_inclusion_tree {
 				// Process all branches containing the commit
 				let branches_containing_commit =
-					get_branches_containing(repo_dir, commit.git_revision.as_str()).with_context(
-						|| "unable to get the list of branches containing a commit",
-					)?;
+					get_branches_containing(repo_dir, commit.git_revision.as_str(), local_branches)
+						.with_context(|| {
+							"unable to get the list of branches containing a commit"
+						})?;
 				for branch in branches_containing_commit {
 					commits_per_branch
 						.entry(branch)

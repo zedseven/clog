@@ -88,7 +88,11 @@ where
 	build_commit_inclusion_tree(index, commit_list.as_slice(), true, false)
 }
 
-pub fn get_branches_containing<P>(repo_dir: P, commit_revision: &str) -> Result<Vec<String>>
+pub fn get_branches_containing<P>(
+	repo_dir: P,
+	commit_revision: &str,
+	local_branches: bool,
+) -> Result<Vec<String>>
 where
 	P: AsRef<Path>,
 {
@@ -96,10 +100,12 @@ where
 	let mut command = Command::new("git");
 	command
 		.arg("branch")
-		.arg("--remotes")
 		.arg("--contains")
 		.arg(commit_revision)
 		.current_dir(repo_dir);
+	if !local_branches {
+		command.arg("--remotes");
+	}
 
 	// Run the command
 	let branch_list_raw = run_command(command)
