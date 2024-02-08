@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1] - 2024-02-08
+
+### Bug Fixes
+
+- Fix a stupid copy-paste issue that affects the way commit references are collected. ([069f1464](https://github.com/zedseven/clog/commit/069f1464))
+
+### Continuous Integration
+
+- Change the generated artifacts' names to be more descriptive and to be closer to the release artifact names. ([ff2c0fc1](https://github.com/zedseven/clog/commit/ff2c0fc1))
+
+### Features
+
+- Add a new option, `local-branches`, that searches local branches instead of remote ones as part of the `search` functionality. ([3b3877fa](https://github.com/zedseven/clog/commit/3b3877fa))
+
 ## [0.7.0] - 2024-02-07
 
 ### Bug Fixes
