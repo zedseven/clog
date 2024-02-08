@@ -43,7 +43,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v3
         with:
-          name: clog (Linux)
+          name: clog-x86_64-unknown-linux-gnu
           path: ./target/release/clog
           if-no-files-found: error
 
@@ -51,6 +51,6 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v3
         with:
-          name: clog (Windows)
+          name: clog-x86_64-pc-windows-msvc
           path: ./target/release/clog.exe
           if-no-files-found: error
