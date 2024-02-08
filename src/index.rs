@@ -55,7 +55,7 @@ impl<'a> Index<'a> {
 					backward_references
 						.entry(referenced_commit)
 						.and_modify(|referencing_commits| referencing_commits.push(commit))
-						.or_insert_with(|| vec![referenced_commit]);
+						.or_insert_with(|| vec![commit]);
 				} else {
 					#[cfg(debug_assertions)]
 					if is_likely_a_real_git_revision(git_revision) {
