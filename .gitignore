@@ -19,3 +19,6 @@
 
 # Environment variable files (for development, often containing private information)
 **/.env
+
+# The testing repository directory
+/test-repo
