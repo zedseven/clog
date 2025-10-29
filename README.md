@@ -1,4 +1,5 @@
 # clog
+
 [![License: MIT/Apache-2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
 A utility for pulling information from the Git commit log of a repo, then processing it into actionable data.
@@ -11,12 +12,16 @@ This tool relies on the line that `git-svn` adds to the end of every commit mess
 provided, which contains the SVN URL and revision number.
 
 It can also generate an SVN to Git revision map from this information, in Markdown or in binary format
-([similar to what `git-svn` itself uses](https://github.com/git/git/blob/eea7033409a0ed713c78437fc76486983d211e25/perl/Git/SVN.pm#L2188-L2214)).
+([similar to what
+`git-svn` itself uses](https://github.com/git/git/blob/eea7033409a0ed713c78437fc76486983d211e25/perl/Git/SVN.pm#L2188-L2214)).
 
-Please note that this tool is somewhat specialised, and may not be useful out of the box for other people's use-cases.
+Please note that this tool is somewhat specialised, and may not be useful out of the box for other use-cases.
+It's mainly been designed around the Atlassian ecosystem (expecting ticket names to be formatted like Jira does,
+for example).
 Feel free to [open an issue](https://github.com/zedseven/clog/issues/new) or submit a PR if you have something to add.
 
 ## Project License
+
 This project is licensed under either of
 
 - Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
@@ -27,6 +32,7 @@ This project is licensed under either of
 at your option.
 
 ### Contribution
+
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in *clog* by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
