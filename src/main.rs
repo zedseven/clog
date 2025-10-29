@@ -1,6 +1,7 @@
-//! A simple utility for building a revision map for a Git repo that was
-//! converted from an SVN repository by `git-svn` with the `--metadata` flag
-//! supplied.
+//! A utility for pulling information from the Git commit log of a repo, then
+//! processing it into actionable data.
+//! The name comes from the phrase "Commit Log", but you can also think of it as
+//! the variety of shoe.
 
 // Linting Rules
 #![warn(
