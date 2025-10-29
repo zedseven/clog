@@ -79,8 +79,7 @@ pub fn build_cli() -> Command {
 		.long("include-mentioned")
 		.visible_alias("mentioned")
 		.visible_alias("mentioned-tickets")
-		// Not a fan of using "Jira" as a synonym for "ticket", but it makes sense as an
-		// alias
+		// Not a fan of using "Jira" as a synonym for "ticket", but it makes sense as an alias
 		.visible_alias("mentioned-jiras")
 		.num_args(0..=1)
 		.default_value("false")
@@ -122,6 +121,23 @@ pub fn build_cli() -> Command {
 			"The prefix to apply to Jira tickets in the output. This is a convenience feature to \
 			 make the output more directly-usable with external tools, like turning each ticket \
 			 into a tag in Obsidian.",
+		);
+	let simple_ticket_list_arg = Arg::new("simple-ticket-list")
+		.short('s')
+		.long("simple-ticket-list")
+		.visible_alias("simple-list")
+		.visible_alias("simple")
+		.visible_alias("confluence")
+		.num_args(0..=1)
+		.default_value("false")
+		.default_missing_value("true")
+		.action(ArgAction::Set)
+		.value_name("TRUE/FALSE")
+		.value_parser(value_parser!(bool))
+		.help(
+			"Print the list of tickets in a simple format, comma-separated, without commit \
+			 information.\nThis is mainly intended for use with Confluence's `Jira` (`Jira \
+			 Issue/Filter`) macro, to quickly create interactive lists of Jira tickets.",
 		);
 	let copy_to_clipboard_arg = Arg::new("copy-to-clipboard")
 		.short('C')
@@ -171,6 +187,7 @@ pub fn build_cli() -> Command {
 		.arg(show_commits_arg.clone())
 		.arg(hash_length_arg.clone())
 		.arg(ticket_prefix_arg.clone())
+		.arg(simple_ticket_list_arg.clone())
 		.arg(copy_to_clipboard_arg.clone());
 
 	let compare_subcommand = Command::new("compare")
@@ -223,6 +240,7 @@ pub fn build_cli() -> Command {
 		.arg(show_commits_arg)
 		.arg(hash_length_arg.clone())
 		.arg(ticket_prefix_arg.clone())
+		.arg(simple_ticket_list_arg.clone())
 		.arg(copy_to_clipboard_arg.clone());
 
 	let search_subcommand = Command::new("search")

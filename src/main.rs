@@ -113,6 +113,9 @@ fn main() -> Result<()> {
 			let ticket_prefix = matches
 				.get_one::<String>("ticket-prefix")
 				.expect("Clap provides a default value");
+			let simple_ticket_list = *matches
+				.get_one::<bool>("simple-ticket-list")
+				.unwrap_or(&false);
 			let copy_to_clipboard = *matches
 				.get_one::<bool>("copy-to-clipboard")
 				.unwrap_or(&false);
@@ -181,13 +184,25 @@ fn main() -> Result<()> {
 				&mut multi_writer,
 				"Jira tickets: ({jira_ticket_total} total)"
 			)?;
-			display_jira_ticket_commit_list(
-				&mut multi_writer,
-				jira_ticket_groups_sorted.as_slice(),
-				show_commits,
-				hash_length,
-				ticket_prefix,
-			)?;
+			if simple_ticket_list {
+				display_jira_ticket_simple_list(
+					&mut multi_writer,
+					jira_ticket_groups_sorted
+						.iter()
+						.map(|(ticket, _)| *ticket)
+						.collect::<Vec<_>>()
+						.as_slice(),
+					ticket_prefix,
+				)?;
+			} else {
+				display_jira_ticket_commit_list(
+					&mut multi_writer,
+					jira_ticket_groups_sorted.as_slice(),
+					show_commits,
+					hash_length,
+					ticket_prefix,
+				)?;
+			}
 
 			// Copy the output to the clipboard if specified
 			if copy_to_clipboard {
@@ -225,6 +240,9 @@ fn main() -> Result<()> {
 			let ticket_prefix = matches
 				.get_one::<String>("ticket-prefix")
 				.expect("Clap provides a default value");
+			let simple_ticket_list = *matches
+				.get_one::<bool>("simple-ticket-list")
+				.unwrap_or(&false);
 			let copy_to_clipboard = *matches
 				.get_one::<bool>("copy-to-clipboard")
 				.unwrap_or(&false);
@@ -423,13 +441,25 @@ fn main() -> Result<()> {
 				&mut multi_writer,
 				"Jira tickets only on `{object_a}`: ({jira_tickets_only_on_object_a_total} total)"
 			)?;
-			display_jira_ticket_commit_list(
-				&mut multi_writer,
-				jira_tickets_only_on_object_a.as_slice(),
-				show_commits,
-				hash_length,
-				ticket_prefix,
-			)?;
+			if simple_ticket_list {
+				display_jira_ticket_simple_list(
+					&mut multi_writer,
+					jira_tickets_only_on_object_a
+						.iter()
+						.map(|(ticket, _)| *ticket)
+						.collect::<Vec<_>>()
+						.as_slice(),
+					ticket_prefix,
+				)?;
+			} else {
+				display_jira_ticket_commit_list(
+					&mut multi_writer,
+					jira_tickets_only_on_object_a.as_slice(),
+					show_commits,
+					hash_length,
+					ticket_prefix,
+				)?;
+			}
 
 			writeln!(&mut multi_writer)?;
 
@@ -437,13 +467,25 @@ fn main() -> Result<()> {
 				&mut multi_writer,
 				"Jira tickets only on `{object_b}`: ({jira_tickets_only_on_object_b_total} total)"
 			)?;
-			display_jira_ticket_commit_list(
-				&mut multi_writer,
-				jira_tickets_only_on_object_b.as_slice(),
-				show_commits,
-				hash_length,
-				ticket_prefix,
-			)?;
+			if simple_ticket_list {
+				display_jira_ticket_simple_list(
+					&mut multi_writer,
+					jira_tickets_only_on_object_b
+						.iter()
+						.map(|(ticket, _)| *ticket)
+						.collect::<Vec<_>>()
+						.as_slice(),
+					ticket_prefix,
+				)?;
+			} else {
+				display_jira_ticket_commit_list(
+					&mut multi_writer,
+					jira_tickets_only_on_object_b.as_slice(),
+					show_commits,
+					hash_length,
+					ticket_prefix,
+				)?;
+			}
 
 			writeln!(&mut multi_writer)?;
 
@@ -452,15 +494,27 @@ fn main() -> Result<()> {
 				"Jira tickets on both `{object_a}` and `{object_b}`: \
 				 ({jira_tickets_on_both_objects_total} total)"
 			)?;
-			display_jira_ticket_commit_list_intersection(
-				&mut multi_writer,
-				jira_tickets_on_both_objects_sorted.as_slice(),
-				object_a.as_str(),
-				object_b.as_str(),
-				show_commits,
-				hash_length,
-				ticket_prefix,
-			)?;
+			if simple_ticket_list {
+				display_jira_ticket_simple_list(
+					&mut multi_writer,
+					jira_tickets_on_both_objects_sorted
+						.iter()
+						.map(|(ticket, _)| **ticket)
+						.collect::<Vec<_>>()
+						.as_slice(),
+					ticket_prefix,
+				)?;
+			} else {
+				display_jira_ticket_commit_list_intersection(
+					&mut multi_writer,
+					jira_tickets_on_both_objects_sorted.as_slice(),
+					object_a.as_str(),
+					object_b.as_str(),
+					show_commits,
+					hash_length,
+					ticket_prefix,
+				)?;
+			}
 
 			// Copy the output to the clipboard if specified
 			if copy_to_clipboard {
@@ -738,8 +792,7 @@ fn group_by_jira_tickets<'a>(
 	jira_ticket_groups
 }
 
-/// Displays the simple list of Jira tickets, optionally with commit
-/// information.
+/// Displays a regular list of Jira tickets, optionally with commit information.
 #[allow(clippy::ref_option_ref)]
 fn display_jira_ticket_commit_list(
 	multi_writer: &mut MultiWriter,
@@ -765,7 +818,7 @@ fn display_jira_ticket_commit_list(
 	Ok(())
 }
 
-/// Displays the list of Jira tickets for the intersection between two objects'
+/// Displays a list of Jira tickets for the intersection between two objects'
 /// lists.
 ///
 /// The counterpart of `display_jira_ticket_commit_list`.
@@ -886,6 +939,33 @@ fn display_commit_set(
 			}
 		)?;
 	}
+
+	Ok(())
+}
+
+/// Displays a simplified, comma-separated list of Jira tickets without any
+/// commit details.
+#[allow(clippy::ref_option_ref)]
+fn display_jira_ticket_simple_list(
+	multi_writer: &mut MultiWriter,
+	jira_tickets: &[&Option<&str>],
+	ticket_prefix: &str,
+) -> Result<()> {
+	let mut is_first_ticket = true;
+	for jira_ticket_option in jira_tickets {
+		if let Some(ticket) = jira_ticket_option {
+			let jira_ticket = format!("{ticket_prefix}{ticket}");
+
+			if is_first_ticket {
+				write!(multi_writer, "{jira_ticket}")?;
+			} else {
+				write!(multi_writer, ", {jira_ticket}")?;
+			}
+		}
+
+		is_first_ticket = false;
+	}
+	writeln!(multi_writer)?;
 
 	Ok(())
 }
