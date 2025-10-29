@@ -71,6 +71,7 @@ where
 	command
 		.arg("log")
 		.arg("--all")
+		.arg("--reflog")
 		.arg("--full-history")
 		.arg(format!(
 			"--pretty=format:{LOG_COMMIT_DELIMITER}%H\n%P\n%s\n%b"
