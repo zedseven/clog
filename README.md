@@ -2,7 +2,7 @@
 [![License: MIT/Apache-2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
 A utility for pulling information from the Git commit log of a repo, then processing it into actionable data.
-The name comes from the phrase "Commit Log", but you can also think of it as the kind of shoe.
+The name comes from the phrase "Commit Log", but you can also think of it as the variety of shoe.
 
 It works by calling `git log` internally then processing the data, following referenced commit revisions, collecting
 Jira tickets, etc., then displaying the information in a useful way.
