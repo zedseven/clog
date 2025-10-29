@@ -41,7 +41,7 @@ jobs:
 
       - name: Upload Artifacts (Linux)
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: clog-x86_64-unknown-linux-gnu
           path: ./target/release/clog
@@ -49,7 +49,7 @@ jobs:
 
       - name: Upload Artifacts (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: clog-x86_64-pc-windows-msvc
           path: ./target/release/clog.exe
