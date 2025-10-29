@@ -27,15 +27,15 @@ pub struct IncludedCommit<'a> {
 
 // Since the Git revision is already a hash and will be unique, this
 // implementation just forwards to it.
-impl<'a> Eq for IncludedCommit<'a> {}
+impl Eq for IncludedCommit<'_> {}
 
-impl<'a> PartialEq for IncludedCommit<'a> {
+impl PartialEq for IncludedCommit<'_> {
 	fn eq(&self, other: &Self) -> bool {
 		self.commit == other.commit
 	}
 }
 
-impl<'a> Hash for IncludedCommit<'a> {
+impl Hash for IncludedCommit<'_> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.commit.hash(state);
 	}

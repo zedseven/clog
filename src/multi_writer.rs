@@ -2,7 +2,7 @@
 //! simultaneously.
 
 // Uses
-use std::io::{Error, ErrorKind, Result, Write};
+use std::io::{Error, Result, Write};
 
 /// A writer for writing to multiple destinations simultaneously.
 pub struct MultiWriter<'a> {
@@ -15,7 +15,7 @@ impl<'a> MultiWriter<'a> {
 	}
 }
 
-impl<'a> Write for MultiWriter<'a> {
+impl Write for MultiWriter<'_> {
 	fn write(&mut self, buf: &[u8]) -> Result<usize> {
 		if self.children.is_empty() {
 			return Ok(buf.len());
@@ -32,8 +32,7 @@ impl<'a> Write for MultiWriter<'a> {
 			.iter()
 			.all(|byte_count| *byte_count == first_byte_count)
 		{
-			return Err(Error::new(
-				ErrorKind::Other,
+			return Err(Error::other(
 				"underlying writers wrote different byte counts",
 			));
 		}

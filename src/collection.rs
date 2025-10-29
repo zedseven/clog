@@ -6,10 +6,10 @@ use std::{
 	hash::{Hash, Hasher},
 	path::Path,
 	process::Command,
+	sync::LazyLock,
 };
 
 use anyhow::{anyhow, Context, Result};
-use lazy_static::lazy_static;
 use linked_hash_set::LinkedHashSet;
 use regex::Regex;
 
@@ -92,6 +92,30 @@ where
 }
 
 fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Result<Commit> {
+	/// Looks for a Jira ticket right at the start, skipping "Pull request
+	/// #..."
+	static JIRA_TICKET_START_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+		Regex::new(r"^\s*(?:Pull request #\d+.*?)?([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap()
+	});
+	/// Looks for a Jira ticket anywhere on the line
+	static JIRA_TICKET_REFERENCED_REGEX: LazyLock<Regex> =
+		LazyLock::new(|| Regex::new(r"\b([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap());
+	/// Matches any Git commit hashes 7 characters or longer (to avoid
+	/// matching small numbers that show up for other reasons)
+	static GIT_COMMIT_REFERENCE_REGEX: LazyLock<Regex> =
+		LazyLock::new(|| Regex::new(r"(?i)\b([0-9a-f]{7,40})\b").unwrap());
+	/// Finds (hopefully) all references to SVN revisions, but returns them
+	/// as a group, not individually
+	static SVN_COMMIT_REFERENCE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+		Regex::new(
+			r"(?i)\b(?:(?:commit|revision|rev)(?:s|\(s\))? |r)(\d+(?:-\d+)?(?:, ?\d+(?:-\d+)?)*)\b",
+		)
+		.unwrap()
+	});
+	/// Finds mentions of merging or cherry-picking
+	static MERGE_MENTION_REGEX: LazyLock<Regex> =
+		LazyLock::new(|| Regex::new(r"(?i)(merg(?:e|ing)|cherry.?pick)").unwrap());
+
 	let lines = entry.lines().collect::<Vec<_>>();
 	if lines.is_empty() {
 		return Err(anyhow!(
@@ -146,23 +170,6 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 		}
 
 		// Search for Jira tickets
-		lazy_static! {
-			/// Looks for a Jira ticket right at the start, skipping "Pull request #..."
-			static ref JIRA_TICKET_START_REGEX: Regex =
-				Regex::new(r"^\s*(?:Pull request #\d+.*?)?([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap();
-			/// Looks for a Jira ticket anywhere on the line
-			static ref JIRA_TICKET_REFERENCED_REGEX: Regex =
-				Regex::new(r"\b([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap();
-			/// Matches any Git commit hashes 7 characters or longer (to avoid matching small numbers that show up for other reasons)
-			static ref GIT_COMMIT_REFERENCE_REGEX: Regex =
-				Regex::new(r"(?i)\b([0-9a-f]{7,40})\b").unwrap();
-			/// Finds (hopefully) all references to SVN revisions, but returns them as a group, not individually
-			static ref SVN_COMMIT_REFERENCE_REGEX: Regex =
-				Regex::new(r"(?i)\b(?:(?:commit|revision|rev)(?:s|\(s\))? |r)(\d+(?:-\d+)?(?:, ?\d+(?:-\d+)?)*)\b").unwrap();
-			/// Finds mentions of merging or cherry-picking
-			static ref MERGE_MENTION_REGEX: Regex =
-				Regex::new(r"(?i)(merg(?:e|ing)|cherry.?pick)").unwrap();
-		}
 		let jira_ticket_regex = if include_mentioned_jira_tickets {
 			&*JIRA_TICKET_REFERENCED_REGEX
 		} else {

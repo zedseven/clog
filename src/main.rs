@@ -683,7 +683,7 @@ fn main() -> Result<()> {
 			if let Some(path) = matches.get_one::<String>("markdown") {
 				write_to_markdown(path, revision_map.as_slice(), hash_length)
 					.with_context(|| "unable to write the revision map to markdown")?;
-			};
+			}
 		}
 		_ => unreachable!("Clap ensures that a subcommand is provided"),
 	}
