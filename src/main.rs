@@ -947,14 +947,16 @@ fn display_jira_ticket_simple_list(
 ) -> Result<()> {
 	let mut is_first_ticket = true;
 	for jira_ticket_option in jira_tickets {
-		if let Some(ticket) = jira_ticket_option {
-			let jira_ticket = format!("{ticket_prefix}{ticket}");
+		let jira_ticket = if let Some(ticket) = jira_ticket_option {
+			format!("{ticket_prefix}{ticket}")
+		} else {
+			NO_JIRA_TICKET_STR.to_owned()
+		};
 
-			if is_first_ticket {
-				write!(multi_writer, "{jira_ticket}")?;
-			} else {
-				write!(multi_writer, ", {jira_ticket}")?;
-			}
+		if is_first_ticket {
+			write!(multi_writer, "{jira_ticket}")?;
+		} else {
+			write!(multi_writer, ", {jira_ticket}")?;
 		}
 
 		is_first_ticket = false;
