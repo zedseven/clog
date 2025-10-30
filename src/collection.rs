@@ -116,6 +116,9 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	/// Finds mentions of merging or cherry-picking
 	static MERGE_MENTION_REGEX: LazyLock<Regex> =
 		LazyLock::new(|| Regex::new(r"(?i)(merg(?:e|ing)|cherry.?pick)").unwrap());
+	/// Finds mentions of reverting another commit
+	static REVERT_MENTION_REGEX: LazyLock<Regex> =
+		LazyLock::new(|| Regex::new(r"(?i)This reverts commit [0-9a-f]{40}").unwrap());
 
 	let lines = entry.lines().collect::<Vec<_>>();
 	if lines.is_empty() {
@@ -141,6 +144,7 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	let mut referenced_git_commits_set = LinkedHashSet::new();
 	let mut referenced_svn_commits_set = LinkedHashSet::new();
 	let mut mentions_merging = false;
+	let mut mentions_reverting = false;
 	let mut first_line = true;
 	for line in lines.iter().skip(2) {
 		// Search for the SVN metadata string
@@ -215,6 +219,10 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 			mentions_merging = true;
 		}
 
+		if REVERT_MENTION_REGEX.is_match(line) {
+			mentions_reverting = true;
+		}
+
 		first_line = false;
 	}
 
@@ -223,15 +231,16 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	// Conditions:
 	// 	- Is a merge commit (multiple parent commits)
 	// 	- Mentions merging and references at least one other commit
-	// 	- Only references one Git commit (cherry-picks are applied one commit at a
-	//    time, unless squashed, in which case we don't get a nice message anyway)
-	//    and the Git commit reference is using the full hash (indicative of a
-	//    cherry-pick message)
+	// 	- Doesn't mention reverting, only references one Git commit (cherry-picks
+	//    are applied one commit at a time, unless squashed, in which case we don't
+	//    get a nice message anyway), and the Git commit reference is using the full
+	//    hash (indicative of a cherry-pick message)
 	// 	- References multiple SVN revisions
 	let is_likely_a_merge = parent_revisions.len() > 1
 		|| (mentions_merging
 			&& (!referenced_git_commits_set.is_empty() || !referenced_svn_commits_set.is_empty()))
-		|| (referenced_git_commits_set.len() == 1
+		|| (!mentions_reverting
+			&& referenced_git_commits_set.len() == 1
 			&& referenced_git_commits_set
 				.iter()
 				.all(|commit_reference| commit_reference.len() == SHA1_HASH_ASCII_LENGTH))
