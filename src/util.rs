@@ -110,6 +110,7 @@ pub fn chop_str(string: &str, maximum_length: usize) -> String {
 		for character in string.chars().take(maximum_length - 1) {
 			chopped_string.push(character);
 		}
+		chopped_string.truncate(chopped_string.trim_end().len());
 		chopped_string.push(ELLIPSIS);
 	} else {
 		chopped_string.push_str(string);
