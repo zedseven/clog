@@ -134,6 +134,7 @@ pub fn build_cli() -> Command {
 		.action(ArgAction::Set)
 		.value_name("TRUE/FALSE")
 		.value_parser(value_parser!(bool))
+		.conflicts_with("show-commits")
 		.help(
 			"Print the list of tickets in a simple format, comma-separated, without commit \
 			 information.\nThis is mainly intended for use with Confluence's `Jira` (`Jira \
