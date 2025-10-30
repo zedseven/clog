@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.2] - 2025-10-30
+
+### Features
+
+- Trim the chopped summary string before adding the ellipsis, to avoid awkward whitespace. ([bf9fed1b](https://github.com/zedseven/clog/commit/bf9fed1b))
+
 ## [0.8.1] - 2025-10-30
 
 ### Features
