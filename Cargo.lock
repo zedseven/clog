@@ -119,7 +119,6 @@ dependencies = [
  "anyhow",
  "clap",
  "copypasta",
- "lazy_static",
  "linked_hash_set",
  "regex",
  "shell-words",
@@ -255,12 +254,6 @@ name = "lazy-bytes-cast"
 version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10257499f089cd156ad82d0a9cd57d9501fa2c989068992a97eb3c27836f206b"
-
-[[package]]
-name = "lazy_static"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
