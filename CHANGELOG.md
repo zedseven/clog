@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2025-10-30
+
+### Features
+
+- Chop the commit summaries to a limited number of characters. ([835cbd9b](https://github.com/zedseven/clog/commit/835cbd9b))
+
+### Miscellaneous Tasks
+
+- Remove `lazy_static` as a dependency. ([c68b8108](https://github.com/zedseven/clog/commit/c68b8108))
+
 ## [0.8.0] - 2025-10-30
 
 ### Bug Fixes
