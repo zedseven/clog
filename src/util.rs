@@ -101,6 +101,23 @@ pub fn sortable_jira_ticket(jira_ticket: &str) -> (&str, u32) {
 	(project, issue_num)
 }
 
+pub fn chop_str(string: &str, maximum_length: usize) -> String {
+	const ELLIPSIS: char = '\u{2026}';
+
+	let mut chopped_string = String::new();
+
+	if string.chars().count() > maximum_length {
+		for character in string.chars().take(maximum_length - 1) {
+			chopped_string.push(character);
+		}
+		chopped_string.push(ELLIPSIS);
+	} else {
+		chopped_string.push_str(string);
+	}
+
+	chopped_string
+}
+
 pub fn singular_or_plural<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a str {
 	if count == 1 {
 		singular

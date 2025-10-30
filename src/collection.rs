@@ -14,8 +14,8 @@ use linked_hash_set::LinkedHashSet;
 use regex::Regex;
 
 use crate::{
-	constants::{GIT_SVN_ID_STR, SHA1_HASH_ASCII_LENGTH},
-	util::run_command,
+	constants::{COMMIT_SUMMARY_MAX_LENGTH, GIT_SVN_ID_STR, SHA1_HASH_ASCII_LENGTH},
+	util::{chop_str, run_command},
 };
 
 // Constants
@@ -179,7 +179,7 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 		if is_first_line {
 			summary = SUMMARY_REGEX
 				.captures_iter(line)
-				.map(|summary| summary[1].to_owned())
+				.map(|summary| chop_str(summary[1].trim(), COMMIT_SUMMARY_MAX_LENGTH))
 				.next();
 		}
 

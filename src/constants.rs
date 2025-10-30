@@ -11,3 +11,4 @@ pub const SHA1_HASH_ASCII_LENGTH: usize = SHA1_HASH_LENGTH * 2;
 ///
 /// https://github.com/git/git/blob/master/git-svn.perl
 pub const GIT_SVN_ID_STR: &str = "git-svn-id";
+pub const COMMIT_SUMMARY_MAX_LENGTH: usize = 85;
