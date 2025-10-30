@@ -12,7 +12,7 @@ use anyhow::{Context, Result};
 use shell_words::split as split_shell_words;
 
 use crate::{
-	collection::Commit,
+	collection::{Commit, CommitType},
 	index::Index,
 	util::{inside_out_result, run_command},
 };
@@ -227,7 +227,8 @@ fn visit_commit<'a>(
 	let linked_commits = raw_references
 		.iter()
 		.filter(|referenced_commit| {
-			!only_consider_likely_merges || referenced_commit.is_likely_a_merge
+			!only_consider_likely_merges
+				|| referenced_commit.likely_commit_type == CommitType::CherryPick
 		})
 		.map(|referenced_commit| {
 			visit_commit(

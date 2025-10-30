@@ -62,7 +62,7 @@ use shell_words::split as split_shell_words;
 use crate::{
 	cli::build_cli,
 	clipboard::copy_str_to_clipboard,
-	collection::{get_complete_commit_list, Commit},
+	collection::{get_complete_commit_list, Commit, CommitType},
 	index::Index,
 	multi_writer::MultiWriter,
 	search::{
@@ -79,7 +79,6 @@ use crate::{
 
 // Constants
 const NO_JIRA_TICKET_STR: &str = "*No Jira Ticket*";
-const MERGE_COMMIT_MARKER_STR: &str = " (M)";
 
 // Entry Point
 fn main() -> Result<()> {
@@ -338,7 +337,7 @@ fn main() -> Result<()> {
 				// cherry-pick), but this should basically never happen, so it's not worth
 				// covering at the moment
 				search_results_only_on_object_a.retain(|commit| {
-					if commit.commit.is_likely_a_merge {
+					if commit.commit.likely_commit_type == CommitType::CherryPick {
 						for included_commit in &commit.linked_commits {
 							if search_results_only_on_object_b_hash_set.contains(included_commit) {
 								object_b_removal_set
@@ -353,7 +352,7 @@ fn main() -> Result<()> {
 					if object_b_removal_set.contains(&commit.commit.git_revision) {
 						return false;
 					}
-					if commit.commit.is_likely_a_merge {
+					if commit.commit.likely_commit_type == CommitType::CherryPick {
 						for included_commit in &commit.linked_commits {
 							if search_results_only_on_object_a_hash_set.contains(included_commit) {
 								object_a_removal_set
@@ -896,11 +895,7 @@ fn display_commit_reference_tree(
 			multi_writer,
 			"- `{}`{}",
 			&included_commit.commit.git_revision[0..hash_length],
-			if included_commit.commit.is_likely_a_merge {
-				MERGE_COMMIT_MARKER_STR
-			} else {
-				""
-			}
+			included_commit.commit.likely_commit_type.get_marker()
 		)?;
 
 		// Recurse over the referenced commits
@@ -933,11 +928,7 @@ fn display_commit_set(
 			multi_writer,
 			"- `{}`{}",
 			&commit.git_revision[0..hash_length],
-			if commit.is_likely_a_merge {
-				MERGE_COMMIT_MARKER_STR
-			} else {
-				""
-			}
+			commit.likely_commit_type.get_marker()
 		)?;
 	}
 

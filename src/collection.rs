@@ -28,19 +28,7 @@ pub struct Commit {
 	pub svn_info:           Option<SvnInfo>,
 	pub jira_tickets:       Vec<String>,
 	pub referenced_commits: ReferencedCommits,
-	pub is_likely_a_merge:  bool,
-}
-
-#[derive(Debug)]
-pub struct SvnInfo {
-	pub svn_url:      String,
-	pub svn_revision: u32,
-}
-
-#[derive(Debug)]
-pub struct ReferencedCommits {
-	pub git_commits: Vec<String>,
-	pub svn_commits: Vec<u32>,
+	pub likely_commit_type: CommitType,
 }
 
 // Since the Git revision is already a hash and will be unique, this
@@ -57,6 +45,37 @@ impl Hash for Commit {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.git_revision.hash(state);
 	}
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum CommitType {
+	Normal,
+	Merge,
+	CherryPick,
+	Revert,
+}
+
+impl CommitType {
+	pub fn get_marker(&self) -> &str {
+		match self {
+			Self::Normal => "",
+			Self::Merge => " (M)",
+			Self::CherryPick => " (C)",
+			Self::Revert => " (R)",
+		}
+	}
+}
+
+#[derive(Debug)]
+pub struct SvnInfo {
+	pub svn_url:      String,
+	pub svn_revision: u32,
+}
+
+#[derive(Debug)]
+pub struct ReferencedCommits {
+	pub git_commits: Vec<String>,
+	pub svn_commits: Vec<u32>,
 }
 
 pub fn get_complete_commit_list<P>(
@@ -236,15 +255,26 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	//    get a nice message anyway), and the Git commit reference is using the full
 	//    hash (indicative of a cherry-pick message)
 	// 	- References multiple SVN revisions
-	let is_likely_a_merge = parent_revisions.len() > 1
-		|| (mentions_merging
-			&& (!referenced_git_commits_set.is_empty() || !referenced_svn_commits_set.is_empty()))
-		|| (!mentions_reverting
-			&& referenced_git_commits_set.len() == 1
-			&& referenced_git_commits_set
-				.iter()
-				.all(|commit_reference| commit_reference.len() == SHA1_HASH_ASCII_LENGTH))
-		|| referenced_svn_commits_set.len() > 1;
+	#[allow(clippy::if_same_then_else)]
+	let likely_commit_type = if parent_revisions.len() > 1 {
+		CommitType::Merge
+	} else if mentions_reverting {
+		CommitType::Revert
+	} else if mentions_merging
+		&& (!referenced_git_commits_set.is_empty() || !referenced_svn_commits_set.is_empty())
+	{
+		CommitType::CherryPick
+	} else if referenced_git_commits_set.len() == 1
+		&& referenced_git_commits_set
+			.iter()
+			.all(|commit_reference| commit_reference.len() == SHA1_HASH_ASCII_LENGTH)
+	{
+		CommitType::CherryPick
+	} else if referenced_svn_commits_set.len() > 1 {
+		CommitType::CherryPick
+	} else {
+		CommitType::Normal
+	};
 
 	Ok(Commit {
 		git_revision,
@@ -255,6 +285,6 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 			git_commits: Vec::from_iter(referenced_git_commits_set),
 			svn_commits: Vec::from_iter(referenced_svn_commits_set),
 		},
-		is_likely_a_merge,
+		likely_commit_type,
 	})
 }
