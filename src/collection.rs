@@ -24,6 +24,7 @@ const LOG_COMMIT_DELIMITER: &str = "CLOG-COMMIT-DELIMITER\n";
 #[derive(Debug)]
 pub struct Commit {
 	pub git_revision:       String,
+	pub summary:            String,
 	pub parent_revisions:   Vec<String>,
 	pub svn_info:           Option<SvnInfo>,
 	pub jira_tickets:       Vec<String>,
@@ -120,6 +121,9 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 	/// Looks for a Jira ticket anywhere on the line
 	static JIRA_TICKET_REFERENCED_REGEX: LazyLock<Regex> =
 		LazyLock::new(|| Regex::new(r"\b([A-Z][A-Z0-9_]+-[1-9][0-9]*)\b").unwrap());
+	/// Removes the ticket from the start of the summary, if it's present.
+	static SUMMARY_REGEX: LazyLock<Regex> =
+		LazyLock::new(|| Regex::new(r"^\s*(?:[A-Z][A-Z0-9_]+-[1-9][0-9]*:\s*)?(.*)$").unwrap());
 	/// Matches any Git commit hashes 7 characters or longer (to avoid
 	/// matching small numbers that show up for other reasons)
 	static GIT_COMMIT_REFERENCE_REGEX: LazyLock<Regex> =
@@ -158,14 +162,27 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 		.collect::<Vec<_>>();
 
 	// Search the commit message content for information
+	let mut summary = None;
 	let mut svn_info = None;
 	let mut jira_tickets_set = HashSet::new();
 	let mut referenced_git_commits_set = LinkedHashSet::new();
 	let mut referenced_svn_commits_set = LinkedHashSet::new();
 	let mut mentions_merging = false;
 	let mut mentions_reverting = false;
-	let mut first_line = true;
+	let mut is_first_line = true;
 	for line in lines.iter().skip(2) {
+		if is_first_line && line.is_empty() {
+			continue;
+		}
+
+		// Get the summary from the commit
+		if is_first_line {
+			summary = SUMMARY_REGEX
+				.captures_iter(line)
+				.map(|summary| summary[1].to_owned())
+				.next();
+		}
+
 		// Search for the SVN metadata string
 		if svn_info.is_none() && line.starts_with(GIT_SVN_ID_STR) {
 			// The SVN metadata looks like this (without quotes):
@@ -201,7 +218,7 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 		};
 		// Only check the first line for Jira tickets, unless we're supposed to look for
 		// all mentioned tickets
-		if include_mentioned_jira_tickets || first_line {
+		if include_mentioned_jira_tickets || is_first_line {
 			for jira_ticket in jira_ticket_regex.captures_iter(line) {
 				jira_tickets_set.insert(jira_ticket[1].to_owned());
 			}
@@ -242,7 +259,7 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 			mentions_reverting = true;
 		}
 
-		first_line = false;
+		is_first_line = false;
 	}
 
 	// This is a heuristic that determines whether it is likely that the commit is a
@@ -278,6 +295,7 @@ fn process_commit_entry(entry: &str, include_mentioned_jira_tickets: bool) -> Re
 
 	Ok(Commit {
 		git_revision,
+		summary: summary.unwrap_or_default(),
 		parent_revisions,
 		svn_info,
 		jira_tickets: Vec::from_iter(jira_tickets_set),

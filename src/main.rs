@@ -893,9 +893,10 @@ fn display_commit_reference_tree(
 		// Print the commit revision
 		writeln!(
 			multi_writer,
-			"- `{}`{}",
+			"- `{}`{}: \"{}\"",
 			&included_commit.commit.git_revision[0..hash_length],
-			included_commit.commit.likely_commit_type.get_marker()
+			included_commit.commit.likely_commit_type.get_marker(),
+			included_commit.commit.summary.as_str()
 		)?;
 
 		// Recurse over the referenced commits
@@ -926,9 +927,10 @@ fn display_commit_set(
 		// Print the commit revision
 		writeln!(
 			multi_writer,
-			"- `{}`{}",
+			"- `{}`{}: \"{}\"",
 			&commit.git_revision[0..hash_length],
-			commit.likely_commit_type.get_marker()
+			commit.likely_commit_type.get_marker(),
+			commit.summary.as_str()
 		)?;
 	}
 
