@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2025-10-30
+
+### Bug Fixes
+
+- Add `--reflog` as an option to `git log` when collecting all commits from the repository, to gain visibility of commits that have become orphaned. ([7f4fb102](https://github.com/zedseven/clog/commit/7f4fb102))
+- Prevent revert commits from being treated like cherry-picks. ([e02a4036](https://github.com/zedseven/clog/commit/e02a4036))
+- Make the `simple-ticket-list` option conflict with the `show-commits` option. ([2e593f85](https://github.com/zedseven/clog/commit/2e593f85))
+- Fix a small issue with the simple ticket list display that could occur if there are commits with no Jira ticket. ([bfad7d92](https://github.com/zedseven/clog/commit/bfad7d92))
+
+### Continuous Integration
+
+- Update the `upload-artifact` action to version 4. ([158bafc3](https://github.com/zedseven/clog/commit/158bafc3))
+
+### Documentation
+
+- Update the project description slightly. ([0147b4d9](https://github.com/zedseven/clog/commit/0147b4d9))
+- Update the crate description in `main.rs` to match what is in `Cargo.toml`. ([ae26686f](https://github.com/zedseven/clog/commit/ae26686f))
+- Add a note to `README.md` that the tool is somewhat specialised for the Atlassian ecosystem. ([1dd2455c](https://github.com/zedseven/clog/commit/1dd2455c))
+
+### Features
+
+- Add a new option, `simple-ticket-list`, that causes the ticket lists to be output in a simple, comma-separated format that is perfect for pasting into Confluence's "Jira" macro. ([578bd644](https://github.com/zedseven/clog/commit/578bd644))
+- Identify merges, cherry-picks, and reverts as separate commit types in the display. ([69deb6be](https://github.com/zedseven/clog/commit/69deb6be))
+- Show commit summaries when commit information is enabled. ([45591a6f](https://github.com/zedseven/clog/commit/45591a6f))
+- Display the count of commits alongside the count of Jira tickets for each list. ([a4e4113c](https://github.com/zedseven/clog/commit/a4e4113c))
+
+### Miscellaneous Tasks
+
+- Update the Rust toolchain version to `nightly-2025-10-01`. ([637baded](https://github.com/zedseven/clog/commit/637baded))
+- Update `.gitignore` to add an exclusion for the testing repository directory. ([c0dac50f](https://github.com/zedseven/clog/commit/c0dac50f))
+
+### Refactor
+
+- Apply Clippy lints that were suggested after updating the Rust toolchain version. ([1c638b5c](https://github.com/zedseven/clog/commit/1c638b5c))
+
 ## [0.7.1] - 2024-02-08
 
 ### Bug Fixes
