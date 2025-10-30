@@ -73,7 +73,7 @@ use crate::{
 		get_tags_containing,
 		IncludedCommit,
 	},
-	util::sortable_jira_ticket,
+	util::{singular_or_plural, sortable_jira_ticket},
 	writing::{write_to_bin, write_to_markdown},
 };
 
@@ -173,6 +173,7 @@ fn main() -> Result<()> {
 			} else {
 				jira_ticket_groups.len()
 			};
+			let commit_total = jira_ticket_groups.values().map(Vec::len).sum::<usize>();
 
 			// Sort the Jira tickets
 			let mut jira_ticket_groups_sorted = jira_ticket_groups.iter().collect::<Vec<_>>();
@@ -182,7 +183,8 @@ fn main() -> Result<()> {
 			// Display the results
 			writeln!(
 				&mut multi_writer,
-				"Jira tickets: ({jira_ticket_total} total)"
+				"Jira tickets: ({jira_ticket_total} total, {commit_total} {})",
+				singular_or_plural(commit_total, "commit", "commits")
 			)?;
 			if simple_ticket_list {
 				display_jira_ticket_simple_list(
@@ -406,6 +408,14 @@ fn main() -> Result<()> {
 				} else {
 					jira_tickets_on_both_objects.len()
 				};
+			let jira_tickets_on_both_objects_object_a_commit_total = jira_tickets_on_both_objects
+				.iter()
+				.map(|(_, (commits_object_a, _))| commits_object_a.map_or(0, Vec::len))
+				.sum::<usize>();
+			let jira_tickets_on_both_objects_object_b_commit_total = jira_tickets_on_both_objects
+				.iter()
+				.map(|(_, (_, commits_object_b))| commits_object_b.map_or(0, Vec::len))
+				.sum::<usize>();
 
 			// Sort the sets
 			jira_tickets_only_on_object_a
@@ -426,6 +436,10 @@ fn main() -> Result<()> {
 			} else {
 				jira_tickets_only_on_object_a.len()
 			};
+			let jira_tickets_only_on_object_a_commit_total = jira_tickets_only_on_object_a
+				.iter()
+				.map(|(_, commits)| commits.len())
+				.sum::<usize>();
 			let jira_tickets_only_on_object_b_total = if jira_tickets_only_on_object_b
 				.binary_search_by_key(&&None, |&(jira_ticket, _)| jira_ticket)
 				.is_ok()
@@ -434,12 +448,22 @@ fn main() -> Result<()> {
 			} else {
 				jira_tickets_only_on_object_b.len()
 			};
+			let jira_tickets_only_on_object_b_commit_total = jira_tickets_only_on_object_b
+				.iter()
+				.map(|(_, commits)| commits.len())
+				.sum::<usize>();
 
 			// Display the results
 			writeln!(&mut multi_writer)?;
 			writeln!(
 				&mut multi_writer,
-				"Jira tickets only on `{object_a}`: ({jira_tickets_only_on_object_a_total} total)"
+				"Jira tickets only on `{object_a}`: ({jira_tickets_only_on_object_a_total} total, \
+				 {jira_tickets_only_on_object_a_commit_total} {})",
+				singular_or_plural(
+					jira_tickets_only_on_object_a_commit_total,
+					"commit",
+					"commits"
+				)
 			)?;
 			if simple_ticket_list {
 				display_jira_ticket_simple_list(
@@ -465,7 +489,13 @@ fn main() -> Result<()> {
 
 			writeln!(
 				&mut multi_writer,
-				"Jira tickets only on `{object_b}`: ({jira_tickets_only_on_object_b_total} total)"
+				"Jira tickets only on `{object_b}`: ({jira_tickets_only_on_object_b_total} total, \
+				 {jira_tickets_only_on_object_b_commit_total} {})",
+				singular_or_plural(
+					jira_tickets_only_on_object_b_commit_total,
+					"commit",
+					"commits"
+				)
 			)?;
 			if simple_ticket_list {
 				display_jira_ticket_simple_list(
@@ -491,8 +521,15 @@ fn main() -> Result<()> {
 
 			writeln!(
 				&mut multi_writer,
-				"Jira tickets on both `{object_a}` and `{object_b}`: \
-				 ({jira_tickets_on_both_objects_total} total)"
+				"Jira tickets on both `{object_a}` and `{object_b}`, with potentially different \
+				 changes: ({jira_tickets_on_both_objects_total} total, \
+				 {jira_tickets_on_both_objects_object_a_commit_total} : \
+				 {jira_tickets_on_both_objects_object_b_commit_total} {})",
+				singular_or_plural(
+					jira_tickets_on_both_objects_object_b_commit_total,
+					"commit",
+					"commits"
+				)
 			)?;
 			if simple_ticket_list {
 				display_jira_ticket_simple_list(

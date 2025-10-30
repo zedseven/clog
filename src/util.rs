@@ -100,3 +100,11 @@ pub fn sortable_jira_ticket(jira_ticket: &str) -> (&str, u32) {
 	// Return the pair, so they can be used as a sorting key
 	(project, issue_num)
 }
+
+pub fn singular_or_plural<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a str {
+	if count == 1 {
+		singular
+	} else {
+		plural
+	}
+}
