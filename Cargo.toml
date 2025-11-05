@@ -25,3 +25,8 @@ shell-words = "1.1"
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
+
+[package.metadata.winresource]
+FileDescription = "CLog" # Even though this property is called a "description", it's actually used as the application name in Task Manager
+LegalCopyright = "© 2025 Zacchary Dempsey-Plante"
+OriginalFilename = "clog.exe"
