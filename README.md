@@ -1,4 +1,6 @@
-# clog
+<img src="logo.png" alt="Logo" title="Logo" align="right" width="20%">
+
+# CLog
 
 [![License: MIT/Apache-2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
@@ -36,3 +38,9 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in *clog* by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
+
+## Attribution
+
+The logo is [used with permission](logo-certificate.pdf)
+from [Flaticon](https://www.flaticon.com/free-icon/clog_1076256),
+and made by Freepik.
