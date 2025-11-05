@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.3] - 2025-11-05
+
+### Continuous Integration
+
+- Only compile artifacts when new tags are pushed. ([c43f2c7c](https://github.com/zedseven/clog/commit/c43f2c7c))
+
+### Miscellaneous Tasks
+
+- Add a logo. ([3e2e0e03](https://github.com/zedseven/clog/commit/3e2e0e03))
+- Set up executable packaging for Windows so that the executable has its icon set to the new logo. ([26be3c95](https://github.com/zedseven/clog/commit/26be3c95))
+- Update the copyright year in `LICENSE-MIT`. ([ebfe9964](https://github.com/zedseven/clog/commit/ebfe9964))
+- Add additional Windows resource properties to `Cargo.toml`. ([dd2c3ed9](https://github.com/zedseven/clog/commit/dd2c3ed9))
+
 ## [0.8.2] - 2025-10-30
 
 ### Features
