@@ -1,7 +1,16 @@
 //! Provides the CLI for the program.
 
 // Uses
-use clap::{builder::NonEmptyStringValueParser, value_parser, Arg, ArgAction, ArgGroup, Command};
+use std::ffi::OsStr;
+
+use clap::{
+	builder::{ArgPredicate, NonEmptyStringValueParser},
+	value_parser,
+	Arg,
+	ArgAction,
+	ArgGroup,
+	Command,
+};
 
 use crate::constants::{APPLICATION_PROPER_NAME, SHA1_HASH_ASCII_LENGTH};
 
@@ -39,6 +48,26 @@ pub fn build_cli() -> Command {
 		.value_name("LENGTH")
 		.help("The number of characters to abbreviate Git revision hashes to when displayed.")
 		.value_parser(value_parser!(u32).range(6..=SHA1_HASH_ASCII_LENGTH as i64));
+	let no_auto_fetch_arg = Arg::new("no-auto-fetch")
+		.short('F')
+		.long("no-auto-fetch")
+		.visible_alias("no-fetch")
+		.num_args(0..=1)
+		.default_value("false")
+		.default_missing_value("true")
+		.action(ArgAction::Set)
+		.value_name("TRUE/FALSE")
+		.value_parser(value_parser!(bool))
+		.default_value_if(
+			"local-branches",
+			ArgPredicate::Equals(OsStr::new("true").into()),
+			Some("true"),
+		)
+		.help(
+			"Do not automatically run a `git fetch` before collecting data.\nThis functionality \
+			 is on by default to prevent mistakes where the command is run with an out-of-date \
+			 repository.",
+		);
 	let no_auto_upstream_arg = Arg::new("no-auto-upstream")
 		.short('U')
 		.long("no-auto-upstream")
@@ -197,6 +226,7 @@ pub fn build_cli() -> Command {
 				))
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
+		.arg(no_auto_fetch_arg.clone())
 		.arg(no_auto_upstream_arg.clone())
 		.arg(filepath_arg.clone())
 		.arg(include_merge_commits_arg.clone())
@@ -232,6 +262,7 @@ pub fn build_cli() -> Command {
 				.help("The second reference to compare.")
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
+		.arg(no_auto_fetch_arg.clone())
 		.arg(no_auto_upstream_arg)
 		.arg(filepath_arg)
 		.arg(include_merge_commits_arg)
@@ -293,6 +324,7 @@ pub fn build_cli() -> Command {
 				.value_parser(value_parser!(bool))
 				.help("List tags in the search results as well as branches."),
 		)
+		.arg(no_auto_fetch_arg)
 		.arg(
 			Arg::new("local-branches")
 				.short('L')

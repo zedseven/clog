@@ -53,6 +53,8 @@ mod writing;
 use std::{
 	collections::{HashMap, HashSet},
 	io::{stdout, Write},
+	path::Path,
+	process::Command,
 	str::from_utf8,
 };
 
@@ -75,7 +77,7 @@ use crate::{
 		IncludedCommit,
 	},
 	upstreaming::{upstream_ref_if_possible, upstream_revspec},
-	util::{singular_or_plural, sortable_jira_ticket},
+	util::{run_command, run_command_for_exit_code, singular_or_plural, sortable_jira_ticket},
 	writing::{write_to_bin, write_to_markdown},
 };
 
@@ -101,6 +103,7 @@ fn main() -> Result<()> {
 			let revspec_specified = matches
 				.get_one::<String>("revspec")
 				.expect("Clap ensures the argument is provided");
+			let no_auto_fetch = *matches.get_one::<bool>("no-auto-fetch").unwrap_or(&false);
 			let no_auto_upstream = *matches
 				.get_one::<bool>("no-auto-upstream")
 				.unwrap_or(&false);
@@ -124,6 +127,17 @@ fn main() -> Result<()> {
 			let copy_to_clipboard = *matches
 				.get_one::<bool>("copy-to-clipboard")
 				.unwrap_or(&false);
+
+			// Automatically run a `git fetch` unless this functionality is disabled
+			if !no_auto_fetch && !run_git_fetch(repo_dir) {
+				eprintln!("Note: Unable to run the automatic `git fetch` operation.");
+				eprintln!(
+					"Attempting to proceed anyway, but beware that the results may be out-of-date \
+					 with the remotes."
+				);
+				eprintln!("To disable this functionality, please use `--no-auto-fetch`.");
+				eprintln!();
+			}
 
 			// Automatically replace branches with their upstream remote variants in the
 			// revspec unless this functionality is disabled
@@ -248,6 +262,7 @@ fn main() -> Result<()> {
 			let object_b_specified = matches
 				.get_one::<String>("object-b")
 				.expect("Clap ensures the argument is provided");
+			let no_auto_fetch = *matches.get_one::<bool>("no-auto-fetch").unwrap_or(&false);
 			let no_auto_upstream = *matches
 				.get_one::<bool>("no-auto-upstream")
 				.unwrap_or(&false);
@@ -274,6 +289,17 @@ fn main() -> Result<()> {
 			let copy_to_clipboard = *matches
 				.get_one::<bool>("copy-to-clipboard")
 				.unwrap_or(&false);
+
+			// Automatically run a `git fetch` unless this functionality is disabled
+			if !no_auto_fetch && !run_git_fetch(repo_dir) {
+				eprintln!("Note: Unable to run the automatic `git fetch` operation.");
+				eprintln!(
+					"Attempting to proceed anyway, but beware that the results may be out-of-date \
+					 with the remotes."
+				);
+				eprintln!("To disable this functionality, please use `--no-auto-fetch`.");
+				eprintln!();
+			}
 
 			// Automatically replace branches with their upstream remote variants
 			let object_a = if no_auto_upstream {
@@ -621,6 +647,7 @@ fn main() -> Result<()> {
 				.expect("Clap ensures at least one argument is provided")
 				.collect::<Vec<_>>();
 			let search_tags = *matches.get_one::<bool>("search-tags").unwrap_or(&false);
+			let no_auto_fetch = *matches.get_one::<bool>("no-auto-fetch").unwrap_or(&false);
 			let local_branches = *matches.get_one::<bool>("local-branches").unwrap_or(&false);
 			let include_mentioned_jira_tickets = *matches
 				.get_one::<bool>("include-mentioned")
@@ -634,6 +661,17 @@ fn main() -> Result<()> {
 			let copy_to_clipboard = *matches
 				.get_one::<bool>("copy-to-clipboard")
 				.unwrap_or(&false);
+
+			// Automatically run a `git fetch` unless this functionality is disabled
+			if !no_auto_fetch && !run_git_fetch(repo_dir) {
+				eprintln!("Note: Unable to run the automatic `git fetch` operation.");
+				eprintln!(
+					"Attempting to proceed anyway, but beware that the results may be out-of-date \
+					 with the remotes."
+				);
+				eprintln!("To disable this functionality, please use `--no-auto-fetch`.");
+				eprintln!();
+			}
 
 			// Print the search criteria
 			writeln!(
@@ -830,6 +868,32 @@ fn main() -> Result<()> {
 	}
 
 	Ok(())
+}
+
+fn run_git_fetch<P>(repo_dir: P) -> bool
+where
+	P: AsRef<Path>,
+{
+	let mut git_remote_command = Command::new("git");
+	git_remote_command.arg("remote").current_dir(&repo_dir);
+
+	let has_remotes = !run_command(git_remote_command)
+		.unwrap_or_default()
+		.is_empty();
+
+	if !has_remotes {
+		return true;
+	}
+
+	let mut git_fetch_command = Command::new("git");
+	git_fetch_command
+		.arg("fetch")
+		.arg("--all")
+		.arg("--atomic")
+		.current_dir(repo_dir);
+
+	// Run the command
+	run_command_for_exit_code(git_fetch_command).unwrap_or(false)
 }
 
 /// Flattens string sets based on shell "words".
