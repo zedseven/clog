@@ -39,6 +39,21 @@ pub fn build_cli() -> Command {
 		.value_name("LENGTH")
 		.help("The number of characters to abbreviate Git revision hashes to when displayed.")
 		.value_parser(value_parser!(u32).range(6..=SHA1_HASH_ASCII_LENGTH as i64));
+	let no_auto_upstream_arg = Arg::new("no-auto-upstream")
+		.short('U')
+		.long("no-auto-upstream")
+		.visible_alias("no-upstream")
+		.num_args(0..=1)
+		.default_value("false")
+		.default_missing_value("true")
+		.action(ArgAction::Set)
+		.value_name("TRUE/FALSE")
+		.value_parser(value_parser!(bool))
+		.help(
+			"Do not automatically try to use the upstream remote variants of branches where \
+			 possible.\nThis functionality is on by default to prevent mistakes where the command \
+			 is run on local, out-of-date branches instead of remote ones.",
+		);
 
 	let filepath_arg = Arg::new("filepath")
 		.short('p')
@@ -182,6 +197,7 @@ pub fn build_cli() -> Command {
 				))
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
+		.arg(no_auto_upstream_arg.clone())
 		.arg(filepath_arg.clone())
 		.arg(include_merge_commits_arg.clone())
 		.arg(include_mentioned_arg.clone())
@@ -216,6 +232,7 @@ pub fn build_cli() -> Command {
 				.help("The second reference to compare.")
 				.value_parser(NonEmptyStringValueParser::new()),
 		)
+		.arg(no_auto_upstream_arg)
 		.arg(filepath_arg)
 		.arg(include_merge_commits_arg)
 		.arg(

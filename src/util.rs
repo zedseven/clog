@@ -29,6 +29,17 @@ pub fn run_command(mut command: Command) -> Result<String> {
 		.map(ToOwned::to_owned)
 }
 
+/// Runs a provided command and returns whether it returned success based on its
+/// exit code.
+pub fn run_command_for_exit_code(mut command: Command) -> Result<bool> {
+	// Run the command
+	let command_result = command
+		.output()
+		.with_context(|| "unable to run the command")?;
+
+	Ok(command_result.status.success())
+}
+
 /// Swaps the nesting order of a `Result<Option<T>, E>` to an `Option<Result<T,
 /// E>>`.
 pub fn inside_out_result<T, E>(result: Result<Option<T>, E>) -> Option<Result<T, E>> {

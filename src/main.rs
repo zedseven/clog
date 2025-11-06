@@ -45,6 +45,7 @@ mod constants;
 mod index;
 mod multi_writer;
 mod search;
+mod upstreaming;
 mod util;
 mod writing;
 
@@ -73,6 +74,7 @@ use crate::{
 		get_tags_containing,
 		IncludedCommit,
 	},
+	upstreaming::{upstream_ref_if_possible, upstream_revspec},
 	util::{singular_or_plural, sortable_jira_ticket},
 	writing::{write_to_bin, write_to_markdown},
 };
@@ -96,9 +98,12 @@ fn main() -> Result<()> {
 			let repo_dir = matches
 				.get_one::<String>("repo")
 				.expect("Clap ensures the argument is provided");
-			let revspec = matches
+			let revspec_specified = matches
 				.get_one::<String>("revspec")
 				.expect("Clap ensures the argument is provided");
+			let no_auto_upstream = *matches
+				.get_one::<bool>("no-auto-upstream")
+				.unwrap_or(&false);
 			let affected_filepath_sets = matches.get_many::<String>("filepath");
 			let include_merge_commits = *matches
 				.get_one::<bool>("include-merge-commits")
@@ -119,6 +124,24 @@ fn main() -> Result<()> {
 			let copy_to_clipboard = *matches
 				.get_one::<bool>("copy-to-clipboard")
 				.unwrap_or(&false);
+
+			// Automatically replace branches with their upstream remote variants in the
+			// revspec unless this functionality is disabled
+			let revspec = if no_auto_upstream {
+				revspec_specified.trim().to_owned()
+			} else {
+				upstream_revspec(repo_dir, revspec_specified.trim())
+					.with_context(|| "unable to upstream the revspec")?
+			};
+
+			if revspec != revspec_specified.trim() {
+				eprintln!(
+					"Note: Some branches have been replaced with their upstream remote variants \
+					 in the revspec to ensure up-to-date data is collected."
+				);
+				eprintln!("To disable this functionality, please use `--no-auto-upstream`.");
+				eprintln!();
+			}
 
 			// Print the revspec used
 			writeln!(
@@ -219,12 +242,15 @@ fn main() -> Result<()> {
 			let repo_dir = matches
 				.get_one::<String>("repo")
 				.expect("Clap ensures the argument is provided");
-			let object_a = matches
+			let object_a_specified = matches
 				.get_one::<String>("object-a")
 				.expect("Clap ensures the argument is provided");
-			let object_b = matches
+			let object_b_specified = matches
 				.get_one::<String>("object-b")
 				.expect("Clap ensures the argument is provided");
+			let no_auto_upstream = *matches
+				.get_one::<bool>("no-auto-upstream")
+				.unwrap_or(&false);
 			let affected_filepath_sets = matches.get_many::<String>("filepath");
 			let include_merge_commits = *matches
 				.get_one::<bool>("include-merge-commits")
@@ -248,6 +274,30 @@ fn main() -> Result<()> {
 			let copy_to_clipboard = *matches
 				.get_one::<bool>("copy-to-clipboard")
 				.unwrap_or(&false);
+
+			// Automatically replace branches with their upstream remote variants
+			let object_a = if no_auto_upstream {
+				object_a_specified.trim().to_owned()
+			} else {
+				upstream_ref_if_possible(repo_dir, object_a_specified.trim())
+					.with_context(|| "unable to upstream object A")?
+			};
+
+			let object_b = if no_auto_upstream {
+				object_b_specified.trim().to_owned()
+			} else {
+				upstream_ref_if_possible(repo_dir, object_b_specified.trim())
+					.with_context(|| "unable to upstream object B")?
+			};
+
+			if object_a != object_a_specified.trim() || object_b != object_b_specified.trim() {
+				eprintln!(
+					"Note: Some branches have been replaced with their upstream remote variants \
+					 to ensure up-to-date data is collected."
+				);
+				eprintln!("To disable this functionality, please use `--no-auto-upstream`.");
+				eprintln!();
+			}
 
 			// Print the objects being compared
 			writeln!(
