@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2025-11-06
+
+### Features
+
+- Add functionality that is on by default to automatically use the upstream remote variants of branches instead of local ones. ([7dcade92](https://github.com/zedseven/clog/commit/7dcade92))
+- Add functionality that is on by default to automatically run `git fetch` before collecting data. ([b3180e77](https://github.com/zedseven/clog/commit/b3180e77))
+- Document the fact that the `ticket-prefix` option can also be used to turn tickets into full URLs. ([7725606d](https://github.com/zedseven/clog/commit/7725606d))
+- Print a message notifying the user that the output has been copied to the clipboard even when the OS doesn't require the program to remain running for the clipboard contents to be valid. ([8079df4a](https://github.com/zedseven/clog/commit/8079df4a))
+- Extend the list of operating systems known to not persist clipboard contents to include BSD and Solaris OSes. ([0ca25003](https://github.com/zedseven/clog/commit/0ca25003))
+- Print the clipboard notification regardless of the OS, then print the additional information about clipboard persistence if necessary. ([959dc5f3](https://github.com/zedseven/clog/commit/959dc5f3))
+- Change the way important informational messages are highlighted during display, to use `[NOTE]` and `[WARNING]`. ([6298a66a](https://github.com/zedseven/clog/commit/6298a66a))
+
 ## [0.8.3] - 2025-11-05
 
 ### Continuous Integration
