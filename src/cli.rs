@@ -164,7 +164,7 @@ pub fn build_cli() -> Command {
 		.help(
 			"The prefix to apply to Jira tickets in the output. This is a convenience feature to \
 			 make the output more directly-usable with external tools, like turning each ticket \
-			 into a tag in Obsidian.",
+			 into a tag in Obsidian. This can also be used to turn each ticket into a full URL.",
 		);
 	let simple_ticket_list_arg = Arg::new("simple-ticket-list")
 		.short('s')
