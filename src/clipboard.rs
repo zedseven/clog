@@ -27,7 +27,7 @@ pub fn copy_str_to_clipboard(contents: &str) -> Result<()> {
 		.map_err(|_| anyhow!("unable to set clipboard contents"))?;
 
 	eprintln!();
-	eprintln!("Note: The output has been copied to the clipboard!");
+	eprintln!("[NOTE] The output has been copied to the clipboard!");
 
 	// https://github.com/alacritty/copypasta/issues/49
 	if NON_PERSISTENT_CLIPBOARD_OSES.contains(&OS) {

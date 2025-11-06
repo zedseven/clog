@@ -130,7 +130,7 @@ fn main() -> Result<()> {
 
 			// Automatically run a `git fetch` unless this functionality is disabled
 			if !no_auto_fetch && !run_git_fetch(repo_dir) {
-				eprintln!("Note: Unable to run the automatic `git fetch` operation.");
+				eprintln!("[WARNING] Unable to run the automatic `git fetch` operation.");
 				eprintln!(
 					"Attempting to proceed anyway, but beware that the results may be out-of-date \
 					 with the remotes."
@@ -150,7 +150,7 @@ fn main() -> Result<()> {
 
 			if revspec != revspec_specified.trim() {
 				eprintln!(
-					"Note: Some branches have been replaced with their upstream remote variants \
+					"[NOTE] Some branches have been replaced with their upstream remote variants \
 					 in the revspec to ensure up-to-date data is collected."
 				);
 				eprintln!("To disable this functionality, please use `--no-auto-upstream`.");
@@ -292,7 +292,7 @@ fn main() -> Result<()> {
 
 			// Automatically run a `git fetch` unless this functionality is disabled
 			if !no_auto_fetch && !run_git_fetch(repo_dir) {
-				eprintln!("Note: Unable to run the automatic `git fetch` operation.");
+				eprintln!("[WARNING] Unable to run the automatic `git fetch` operation.");
 				eprintln!(
 					"Attempting to proceed anyway, but beware that the results may be out-of-date \
 					 with the remotes."
@@ -318,7 +318,7 @@ fn main() -> Result<()> {
 
 			if object_a != object_a_specified.trim() || object_b != object_b_specified.trim() {
 				eprintln!(
-					"Note: Some branches have been replaced with their upstream remote variants \
+					"[NOTE] Some branches have been replaced with their upstream remote variants \
 					 to ensure up-to-date data is collected."
 				);
 				eprintln!("To disable this functionality, please use `--no-auto-upstream`.");
@@ -664,7 +664,7 @@ fn main() -> Result<()> {
 
 			// Automatically run a `git fetch` unless this functionality is disabled
 			if !no_auto_fetch && !run_git_fetch(repo_dir) {
-				eprintln!("Note: Unable to run the automatic `git fetch` operation.");
+				eprintln!("[WARNING] Unable to run the automatic `git fetch` operation.");
 				eprintln!(
 					"Attempting to proceed anyway, but beware that the results may be out-of-date \
 					 with the remotes."
