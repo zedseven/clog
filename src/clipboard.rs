@@ -14,7 +14,8 @@ use crate::constants::APPLICATION_PROPER_NAME;
 // Constants
 /// A list of operating systems where the clipboard is known to not be
 /// persistent once the application exits.
-const NON_PERSISTENT_CLIPBOARD_OSES: &[&str] = &["linux"];
+const NON_PERSISTENT_CLIPBOARD_OSES: &[&str] =
+	&["linux", "openbsd", "freebsd", "netbsd", "solaris"];
 
 /// Copies a string to the OS clipboard.
 pub fn copy_str_to_clipboard(contents: &str) -> Result<()> {
