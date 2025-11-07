@@ -9,12 +9,23 @@ use std::{
 use anyhow::{Context, Result};
 use regex::Regex;
 
-use crate::util::run_command;
+use crate::util::{run_command, run_command_for_exit_code};
+
+// Constants
+/// https://stackoverflow.com/questions/171550/find-out-which-remote-branch-a-local-branch-is-tracking/9753364#9753364
+const UPSTREAM_SUFFIX: &str = "@{u}";
 
 // Types
 pub type RemoteBranchDatabase = HashMap<String, HashSet<String>>;
 
-pub fn upstream_revspec(remote_branch_database: &RemoteBranchDatabase, revspec: &str) -> String {
+pub fn upstream_revspec<P>(
+	repo_dir: P,
+	remote_branch_database: &RemoteBranchDatabase,
+	revspec: &str,
+) -> Result<String>
+where
+	P: AsRef<Path>,
+{
 	/// Used for splitting the revspec into individual refs.
 	static REVSPEC_REF_SPLITTING_REGEX: LazyLock<Regex> =
 		LazyLock::new(|| Regex::new(r"\s+|\.{2,3}|@\{.*\}|\^(?:-\d+|[!@])?|[~?\[]").unwrap());
@@ -29,11 +40,12 @@ pub fn upstream_revspec(remote_branch_database: &RemoteBranchDatabase, revspec: 
 
 		last_index = non_ref_match.end();
 
-		let should_upstream_ref = !reference.is_empty();
+		let should_upstream_ref = !reference.is_empty() && non_ref_text != UPSTREAM_SUFFIX;
 
 		if should_upstream_ref {
-			revspec_result
-				.push_str(upstream_ref_if_possible(remote_branch_database, reference).as_str());
+			revspec_result.push_str(
+				upstream_ref_if_possible(&repo_dir, remote_branch_database, reference)?.as_str(),
+			);
 			revspec_result.push_str(non_ref_text);
 		} else {
 			revspec_result.push_str(reference);
@@ -45,25 +57,48 @@ pub fn upstream_revspec(remote_branch_database: &RemoteBranchDatabase, revspec: 
 		let reference = &revspec[last_index..];
 
 		if !reference.is_empty() {
-			revspec_result
-				.push_str(upstream_ref_if_possible(remote_branch_database, reference).as_str());
+			revspec_result.push_str(
+				upstream_ref_if_possible(&repo_dir, remote_branch_database, reference)?.as_str(),
+			);
 		}
 	}
 
-	revspec_result
+	Ok(revspec_result)
 }
 
-pub fn upstream_ref_if_possible(
+pub fn upstream_ref_if_possible<P>(
+	repo_dir: P,
 	remote_branch_database: &RemoteBranchDatabase,
 	reference: &str,
-) -> String {
+) -> Result<String>
+where
+	P: AsRef<Path>,
+{
+	let reference_with_upstream = format!("{reference}{UPSTREAM_SUFFIX}");
+
+	// Prepare the `git log` command for the search
+	let mut command = Command::new("git");
+	command
+		.arg("rev-parse")
+		.arg(reference_with_upstream.as_str())
+		.current_dir(repo_dir);
+
+	// Run the command to check whether it's got an upstream
+	let is_local_branch_with_upstream = run_command_for_exit_code(command)?;
+
+	if is_local_branch_with_upstream {
+		return Ok(reference_with_upstream);
+	}
+
+	// Check if a remote branch exists with the same name
 	for (remote, branch_set) in remote_branch_database {
 		if branch_set.contains(reference) {
-			return format!("{remote}/{reference}");
+			return Ok(format!("{remote}/{reference}"));
 		}
 	}
 
-	reference.to_owned()
+	// Return the raw reference since nothing was found
+	Ok(reference.to_owned())
 }
 
 pub fn build_remote_branch_database<P>(repo_dir: P) -> Result<RemoteBranchDatabase>

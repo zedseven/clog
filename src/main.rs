@@ -146,7 +146,8 @@ fn main() -> Result<()> {
 			} else {
 				let remote_branch_database = build_remote_branch_database(repo_dir)
 					.with_context(|| "unable to build the remote branch database")?;
-				upstream_revspec(&remote_branch_database, revspec_specified.trim())
+				upstream_revspec(repo_dir, &remote_branch_database, revspec_specified.trim())
+					.with_context(|| "unable to upstream the revspec")?
 			};
 
 			if revspec != revspec_specified.trim() {
@@ -312,8 +313,18 @@ fn main() -> Result<()> {
 				let remote_branch_database = build_remote_branch_database(repo_dir)
 					.with_context(|| "unable to build the remote branch database")?;
 				(
-					upstream_ref_if_possible(&remote_branch_database, object_a_specified.trim()),
-					upstream_ref_if_possible(&remote_branch_database, object_b_specified.trim()),
+					upstream_ref_if_possible(
+						repo_dir,
+						&remote_branch_database,
+						object_a_specified.trim(),
+					)
+					.with_context(|| "unable to upstream object A")?,
+					upstream_ref_if_possible(
+						repo_dir,
+						&remote_branch_database,
+						object_b_specified.trim(),
+					)
+					.with_context(|| "unable to upstream object B")?,
 				)
 			};
 
