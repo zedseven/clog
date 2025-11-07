@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2025-11-07
+
+### Features
+
+- Change the automatic upstream functionality to match up branch names with their remotes instead of trying to use Git's upstream syntax. ([39e175da](https://github.com/zedseven/clog/commit/39e175da))
+- Change the automatic upstream functionality to use a combination of Git's upstream syntax *and* matching up branch names with their remotes. ([f0210bca](https://github.com/zedseven/clog/commit/f0210bca))
+
 ## [0.9.0] - 2025-11-06
 
 ### Features
