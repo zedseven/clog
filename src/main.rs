@@ -76,7 +76,7 @@ use crate::{
 		get_tags_containing,
 		IncludedCommit,
 	},
-	upstreaming::{upstream_ref_if_possible, upstream_revspec},
+	upstreaming::{build_remote_branch_database, upstream_ref_if_possible, upstream_revspec},
 	util::{run_command, run_command_for_exit_code, singular_or_plural, sortable_jira_ticket},
 	writing::{write_to_bin, write_to_markdown},
 };
@@ -144,8 +144,9 @@ fn main() -> Result<()> {
 			let revspec = if no_auto_upstream {
 				revspec_specified.trim().to_owned()
 			} else {
-				upstream_revspec(repo_dir, revspec_specified.trim())
-					.with_context(|| "unable to upstream the revspec")?
+				let remote_branch_database = build_remote_branch_database(repo_dir)
+					.with_context(|| "unable to build the remote branch database")?;
+				upstream_revspec(&remote_branch_database, revspec_specified.trim())
 			};
 
 			if revspec != revspec_specified.trim() {
@@ -302,18 +303,18 @@ fn main() -> Result<()> {
 			}
 
 			// Automatically replace branches with their upstream remote variants
-			let object_a = if no_auto_upstream {
-				object_a_specified.trim().to_owned()
+			let (object_a, object_b) = if no_auto_upstream {
+				(
+					object_a_specified.trim().to_owned(),
+					object_b_specified.trim().to_owned(),
+				)
 			} else {
-				upstream_ref_if_possible(repo_dir, object_a_specified.trim())
-					.with_context(|| "unable to upstream object A")?
-			};
-
-			let object_b = if no_auto_upstream {
-				object_b_specified.trim().to_owned()
-			} else {
-				upstream_ref_if_possible(repo_dir, object_b_specified.trim())
-					.with_context(|| "unable to upstream object B")?
+				let remote_branch_database = build_remote_branch_database(repo_dir)
+					.with_context(|| "unable to build the remote branch database")?;
+				(
+					upstream_ref_if_possible(&remote_branch_database, object_a_specified.trim()),
+					upstream_ref_if_possible(&remote_branch_database, object_b_specified.trim()),
+				)
 			};
 
 			if object_a != object_a_specified.trim() || object_b != object_b_specified.trim() {
